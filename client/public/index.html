@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wampus World</title>
+  <meta name="description" content="Symbolic AI-driven open-world driving game — Wampus World" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    #game-canvas { display: block; width: 100%; height: 100%; }
+    #ui-overlay   { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  </style>
+</head>
+<body>
+  <!-- Three.js renders into this canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- React/vanilla UI panels mount here -->
+  <div id="ui-overlay" role="presentation"></div>
+
+  <!-- Boot: type="module" enables ES-module imports across the whole client -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
