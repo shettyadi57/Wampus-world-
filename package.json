@@ -7,15 +7,17 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest",
-    "test:unit": "node --experimental-vm-modules node_modules/.bin/jest tests/unit",
-    "test:integration": "node --experimental-vm-modules node_modules/.bin/jest tests/integration",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:unit": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js tests/unit",
+    "test:integration": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js tests/integration",
     "lint": "eslint ."
   },
   "dependencies": {
     "express": "^4.19.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "jest": "^30.5.1"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
