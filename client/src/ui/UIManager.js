@@ -1,11 +1,29 @@
 /**
  * UIManager.js
  * ─────────────────────────────────────────────────────────────
- * Driving modes (DRIVER, AI DRIVER, CO-PILOT), live 5-stage
- * ANALYSIS MODE pipeline, telemetry HUD, and Developer Debug overlay.
+ * Stage 5 UI/UX Suite for SENTINEL / THE UNKNOWN ROAD.
+ * Coordinates all presentation systems while keeping the 3D world visually dominant:
+ *   - MinimalHUD (Speedometer, physically-responsive RPM arc, fuel/hull gauges, compass tape)
+ *   - ContextualSensorHUD (Slides in only near anomalies)
+ *   - AICoPilotCard (Auto-dismissing live reasoning advice)
+ *   - JunctionDecisionUI (Steering-settling branch cards, zero popups)
+ *   - FieldComputer (Full-screen terminal: fog-of-war map, animated 5-stage pipeline, audit log)
+ *   - GarageMenu (Real numeric mechanical upgrades)
+ *   - MainMenu (Cinematic title screen) & MissionBriefing ("The Silent Checkpoint")
+ *   - PauseMenu (3D world blurred behind it)
+ *   - Multi-Sensory Hazard Feedback (Vignette distortion, Web Audio synthesis, camera shake)
  */
 
 import { DIFFICULTY_TIERS } from '../state/DifficultyConfig.js';
+import { MinimalHUD } from './components/MinimalHUD.js';
+import { ContextualSensorHUD } from './components/ContextualSensorHUD.js';
+import { AICoPilotCard } from './components/AICoPilotCard.js';
+import { JunctionDecisionUI } from './components/JunctionDecisionUI.js';
+import { FieldComputer } from './components/FieldComputer.js';
+import { GarageMenu } from './components/GarageMenu.js';
+import { MainMenu } from './components/MainMenu.js';
+import { MissionBriefing } from './components/MissionBriefing.js';
+import { PauseMenu } from './components/PauseMenu.js';
 
 export class UIManager {
   /**
@@ -26,17 +44,22 @@ export class UIManager {
     this.sensors = options.sensors ?? null;
     this.hunter = options.hunter ?? null;
     this.world = options.world ?? null;
+    this.audio = options.audio ?? null;
+    this.physics = options.physics ?? null;
+    this.missions = options.missions ?? null;
+    this.roads = options.roads ?? null;
+    this.graphics = options.graphics ?? null;
 
     // Modes: 'driver' | 'co_pilot' | 'ai_driver'
     this.mode = 'driver';
 
-    // UI Panel visibility toggles
-    this.showAnalysisMode = false;
+    // State flags
     this.showDebugMode = false;
     this.isPaused = false;
     this.keysPressed = new Set();
+    this.lastHazardState = { breeze: false, stench: false, bump: false };
 
-    this._mountHUD();
+    this._mountUI();
     this._bindKeyboard();
   }
 
@@ -53,6 +76,7 @@ export class UIManager {
       if (this.aiDriver) this.aiDriver.enable();
     }
     console.log(`[ui] Driving mode switched to: ${this.mode.toUpperCase()}`);
+    if (this.audio) this.audio.playClick();
   }
 
   cycleMode() {
@@ -62,63 +86,151 @@ export class UIManager {
     return this.mode;
   }
 
-  _mountHUD() {
+  _mountUI() {
     this.container = document.getElementById('ui-overlay');
+    this.vignetteEl = document.getElementById('hazard-vignette');
     if (!this.container) return;
 
-    // Left Telemetry & Co-Pilot Panel
-    this.hudElement = document.createElement('div');
-    this.hudElement.className = 'hud-panel';
-    this.hudElement.style.top = '12px';
-    this.hudElement.style.left = '12px';
-    this.hudElement.style.maxWidth = '380px';
-    this.hudElement.style.fontFamily = 'monospace';
-    this.hudElement.style.lineHeight = '1.45';
+    // 1. Minimal HUD (Speed, RPM arc, Fuel/Hull, Compass Tape)
+    this.minimalHUD = new MinimalHUD(this.container);
 
-    // Right Mission Panel
-    this.missionElement = document.createElement('div');
-    this.missionElement.className = 'hud-panel';
-    this.missionElement.style.top = '12px';
-    this.missionElement.style.right = '12px';
-    this.missionElement.style.fontFamily = 'monospace';
-    this.missionElement.style.lineHeight = '1.45';
+    // 2. Contextual Sensor HUD (slides in only near anomalies)
+    this.contextualSensors = new ContextualSensorHUD(this.container, this.audio);
 
-    // Center-Bottom Live Analysis Mode Pipeline Panel
-    this.analysisElement = document.createElement('div');
-    this.analysisElement.className = 'hud-panel';
-    this.analysisElement.style.bottom = '12px';
-    this.analysisElement.style.left = '50%';
-    this.analysisElement.style.transform = 'translateX(-50%)';
-    this.analysisElement.style.width = '880px';
-    this.analysisElement.style.maxHeight = '240px';
-    this.analysisElement.style.overflowY = 'auto';
-    this.analysisElement.style.fontFamily = 'monospace';
-    this.analysisElement.style.fontSize = '12px';
-    this.analysisElement.style.display = 'none';
+    // 3. AI Co-Pilot Recommendation Card (auto-dismissing)
+    this.coPilotCard = new AICoPilotCard(this.container);
 
-    // Developer Debug Overlay (unreachable in normal play)
+    // 4. Junction Decision UI (steering-settling, no popup modals)
+    this.junctionUI = new JunctionDecisionUI(this.container);
+
+    // 5. Full-Screen Field Computer (Tab / F key)
+    this.fieldComputer = new FieldComputer(
+      this.container,
+      {
+        world: this.world,
+        kb: this.kb,
+        riskModel: this.riskModel,
+        missions: this.missions,
+        vehicle: this.vehicle,
+      },
+      this.audio
+    );
+
+    // 6. Garage Outfitter Menu (Numeric vehicle & sensor tuning)
+    this.garageMenu = new GarageMenu(
+      this.container,
+      {
+        vehicle: this.vehicle,
+        physics: this.physics,
+        sensors: this.sensors,
+      },
+      this.audio
+    );
+
+    // 7. Mission Briefing ("The Silent Checkpoint")
+    this.missionBriefing = new MissionBriefing(
+      this.container,
+      { world: this.world, missions: this.missions },
+      () => {
+        // On Engage: unpause if paused and notify
+        this.isPaused = false;
+        if (this.audio) this.audio.playAlert();
+        console.log('[ui] Mission engaged: The Silent Checkpoint');
+      },
+      this.audio
+    );
+
+    // 8. Cinematic Main Menu
+    this.mainMenu = new MainMenu(
+      this.container,
+      {
+        onStart: () => {
+          this.missionBriefing.open();
+        },
+        onOpenGarage: () => {
+          this.garageMenu.open();
+        },
+        onSelectTier: (tierId) => {
+          this._setTier(tierId);
+        },
+      },
+      this.audio
+    );
+
+    // 9. Pause Menu (blurred world backdrop)
+    this.pauseMenu = new PauseMenu(
+      this.container,
+      {
+        onResume: () => {
+          this.isPaused = false;
+        },
+        onOpenFieldComputer: () => {
+          this.fieldComputer.open();
+        },
+        onOpenGarage: () => {
+          this.garageMenu.open();
+        },
+        onRestart: () => {
+          if (this.vehicle) this.vehicle.resetTo();
+          this.isPaused = false;
+        },
+      },
+      this.audio
+    );
+
+    // 10. Developer Debug Overlay (Ctrl+Shift+D or Backquote)
     this.debugOverlay = document.createElement('div');
     this.debugOverlay.className = 'hud-panel';
+    this.debugOverlay.style.position = 'absolute';
     this.debugOverlay.style.bottom = '12px';
     this.debugOverlay.style.right = '12px';
     this.debugOverlay.style.maxWidth = '420px';
     this.debugOverlay.style.background = 'rgba(30, 10, 10, 0.88)';
     this.debugOverlay.style.border = '1px solid #ff4444';
-    this.debugOverlay.style.fontFamily = 'monospace';
+    this.debugOverlay.style.fontFamily = 'var(--font-mono)';
     this.debugOverlay.style.fontSize = '11px';
     this.debugOverlay.style.display = 'none';
-
-    this.container.appendChild(this.hudElement);
-    this.container.appendChild(this.missionElement);
-    this.container.appendChild(this.analysisElement);
+    this.debugOverlay.style.zIndex = '50';
     this.container.appendChild(this.debugOverlay);
+
+    // Mode Banner Badge (top-left)
+    this.modeBadge = document.createElement('div');
+    this.modeBadge.className = 'glass-panel';
+    this.modeBadge.style.position = 'absolute';
+    this.modeBadge.style.top = '16px';
+    this.modeBadge.style.left = '16px';
+    this.modeBadge.style.padding = '8px 14px';
+    this.modeBadge.style.fontFamily = 'var(--font-hud)';
+    this.modeBadge.style.fontSize = '12px';
+    this.modeBadge.style.fontWeight = '700';
+    this.modeBadge.style.letterSpacing = '0.08em';
+    this.modeBadge.style.border = '1px solid var(--border-glass)';
+    this.modeBadge.style.pointerEvents = 'auto';
+    this.modeBadge.style.cursor = 'pointer';
+    this.modeBadge.innerHTML = `<span style="color:var(--accent-cyan)">DRIVER [MANUAL]</span> <span style="color:var(--text-muted);font-weight:normal;font-size:10px;">[M to switch]</span>`;
+    this.modeBadge.addEventListener('click', () => this.cycleMode());
+    this.container.appendChild(this.modeBadge);
+
+    // Field Computer Trigger Button (top-right)
+    this.fcBtn = document.createElement('button');
+    this.fcBtn.className = 'sentinel-btn';
+    this.fcBtn.style.position = 'absolute';
+    this.fcBtn.style.top = '16px';
+    this.fcBtn.style.right = '16px';
+    this.fcBtn.style.padding = '8px 14px';
+    this.fcBtn.style.fontSize = '11px';
+    this.fcBtn.innerHTML = `FIELD COMPUTER <span style="font-family:var(--font-mono);font-size:9px;color:var(--accent-amber)">[TAB]</span>`;
+    this.fcBtn.addEventListener('click', () => {
+      this.fieldComputer.toggle();
+    });
+    this.container.appendChild(this.fcBtn);
   }
 
   _bindKeyboard() {
     window.addEventListener('keydown', (e) => {
       const code = e.code;
 
-      // ── Developer Debug Mode specific key combo: Ctrl + Shift + D OR Backquote ──
+      // ── Developer Debug Mode combo: Ctrl + Shift + D OR Backquote ──
       if ((e.ctrlKey && e.shiftKey && code === 'KeyD') || code === 'Backquote') {
         e.preventDefault();
         this.showDebugMode = !this.showDebugMode;
@@ -129,57 +241,95 @@ export class UIManager {
         return;
       }
 
+      // Tab or KeyF: Field Computer Terminal Toggle
+      if (code === 'Tab' || code === 'KeyF') {
+        e.preventDefault();
+        if (this.fieldComputer) this.fieldComputer.toggle();
+        return;
+      }
+
+      // Escape: Pause Menu or Close open fullscreens
+      if (code === 'Escape') {
+        e.preventDefault();
+        if (this.fieldComputer?.isOpen) {
+          this.fieldComputer.close();
+          return;
+        }
+        if (this.garageMenu?.isOpen) {
+          this.garageMenu.close();
+          return;
+        }
+        if (this.missionBriefing?.isOpen) {
+          this.missionBriefing.close();
+          return;
+        }
+        if (this.mainMenu?.isOpen) {
+          return; // Don't toggle pause over main menu
+        }
+
+        this.isPaused = !this.isPaused;
+        if (this.isPaused) {
+          this.pauseMenu.open();
+        } else {
+          this.pauseMenu.close();
+        }
+        return;
+      }
+
+      // KeyG: Garage Outfitter Toggle
+      if (code === 'KeyG') {
+        e.preventDefault();
+        if (this.garageMenu) this.garageMenu.toggle();
+        return;
+      }
+
       if (this.keysPressed.has(code)) return;
       this.keysPressed.add(code);
 
-      // Driving Mode switch (KeyM)
+      // Mode switch (KeyM)
       if (code === 'KeyM') {
         this.cycleMode();
         return;
       }
 
-      // Analysis Mode toggle (KeyI)
+      // Analysis Mode toggle (KeyI) -> open Field Computer to reasoning tab
       if (code === 'KeyI') {
-        this.showAnalysisMode = !this.showAnalysisMode;
-        if (this.analysisElement) {
-          this.analysisElement.style.display = this.showAnalysisMode ? 'block' : 'none';
+        if (this.fieldComputer) {
+          this.fieldComputer.open();
+          this.fieldComputer.switchTab('reasoning');
         }
-        console.log(`[ui] Live Analysis Mode pipeline toggled: ${this.showAnalysisMode}`);
         return;
       }
 
-      // Difficulty tier switches (Digit 1-4)
+      // Difficulty tiers (Digit 1-4)
       if (code === 'Digit1') this._setTier('easy');
       if (code === 'Digit2') this._setTier('normal');
       if (code === 'Digit3') this._setTier('hard');
       if (code === 'Digit4') this._setTier('nightmare');
 
-      // Manual actuator controls (active in DRIVER and CO-PILOT modes)
+      // Vehicle manual controls (only in manual or co-pilot modes)
       if (this.mode !== 'ai_driver') {
         if (code === 'KeyW' || code === 'ArrowUp') this.actuators.accelerate(1.0);
         if (code === 'KeyS' || code === 'ArrowDown') this.actuators.brake(1.0);
         if (code === 'KeyA' || code === 'ArrowLeft') this.actuators.steer(-1.0);
         if (code === 'KeyD' || code === 'ArrowRight') this.actuators.steer(1.0);
         if (code === 'Space') { e.preventDefault(); this.actuators.handbrake(); }
-        if (code === 'Tab') { e.preventDefault(); this.actuators.reverse(); }
       }
 
-      // Common utility actuators
+      // Common actuators
       if (code === 'KeyE') this.actuators.interact();
       if (code === 'KeyR') { if (this.vehicle) this.vehicle.resetTo(); }
       if (code === 'KeyL') this.actuators.toggleHeadlights();
-      if (code === 'KeyH') this.actuators.horn();
+      if (code === 'KeyH') {
+        this.actuators.horn();
+        if (this.audio) this.audio.playHorn();
+      }
 
       // Camera cycle (C / V)
       if (code === 'KeyC' || code === 'KeyV') {
         if (this.options.graphics?.cameraController) {
           this.options.graphics.cameraController.cycleMode();
         }
-      }
-
-      // Pause
-      if (code === 'Escape') {
-        this.isPaused = !this.isPaused;
       }
     });
 
@@ -205,155 +355,137 @@ export class UIManager {
   _setTier(tierId) {
     if (this.sensors) this.sensors.setDifficulty(tierId);
     if (this.hunter) this.hunter.setDifficulty(DIFFICULTY_TIERS[tierId]);
+    console.log(`[ui] Difficulty tier switched to: ${tierId.toUpperCase()}`);
+    if (this.audio) this.audio.playClick();
   }
 
+  /**
+   * Main telemetry and perceptual render pass from render loop.
+   * @param {Object} data
+   */
   updateHUD(data) {
-    if (!this.hudElement || !data) return;
+    if (!data) return;
 
-    const speed = data.speedKph.toFixed(0);
-    const fuel = data.fuelRemaining.toFixed(1);
-    const gear = data.reverse ? 'R' : 'D';
-    const hb = data.handbrake ? 'LOCKED' : 'OFF';
-    const lights = data.headlights ? 'ON' : 'OFF';
-    const cam = (data.cameraMode || 'chase').toUpperCase();
+    // 1. Update Minimal HUD Telemetry Cluster
+    if (this.minimalHUD && this.vehicle) {
+      this.minimalHUD.update(data, this.vehicle);
+    }
 
-    const modeLabels = {
-      driver: '<span style="color:#00e5ff;font-weight:bold">DRIVER (MANUAL)</span>',
-      co_pilot: '<span style="color:#ffb700;font-weight:bold">CO-PILOT (AI ASSIST)</span>',
-      ai_driver: '<span style="color:#00ff66;font-weight:bold">AI DRIVER (AUTONOMOUS)</span>',
-    };
+    // 2. Update Mode Badge
+    if (this.modeBadge) {
+      const badges = {
+        driver: '<span style="color:var(--accent-cyan)">DRIVER [MANUAL]</span>',
+        co_pilot: '<span style="color:var(--accent-amber)">CO-PILOT [AI ASSIST]</span>',
+        ai_driver: '<span style="color:var(--status-success)">AI DRIVER [AUTONOMOUS]</span>',
+      };
+      this.modeBadge.innerHTML = `${badges[this.mode]} <span style="color:var(--text-muted);font-weight:normal;font-size:10px;">[M]</span>`;
+    }
 
+    // 3. Multi-Sensory Hazard Feedback (Audio, Vignette Distortion, Camera Shake)
     const p = data.percepts || {};
-    const breezeStr = p.breeze ? '<span style="color:#44bbff;font-weight:bold">BREEZE</span>' : '---';
-    const stenchStr = p.stench ? '<span style="color:#44ff44;font-weight:bold">STENCH</span>' : '---';
-    const glitterStr = p.glitter ? '<span style="color:#ffcc00;font-weight:bold">GLITTER</span>' : '---';
-    const bumpStr = p.bump ? '<span style="color:#ff4444;font-weight:bold">BUMP!</span>' : '---';
+    this._updateHazardFeedback(p);
 
-    // Co-pilot live recommendation calculation
-    let coPilotHtml = '';
-    let topRecommendation = null;
+    // 4. Contextual Sensor HUD (slides in only near anomalies)
+    if (this.contextualSensors) {
+      this.contextualSensors.update(p);
+    }
 
+    // 5. AI Co-Pilot Recommendation Card
+    let topRec = null;
+    let rankedBranches = [];
     if (this.riskModel && p.nodeId) {
-      const ranked = this.riskModel.rankNeighbors(p.nodeId, {
+      rankedBranches = this.riskModel.rankNeighbors(p.nodeId, {
         fuelRemaining: this.vehicle?.fuelRemaining ?? 100,
-      });
+      }) || [];
 
-      if (ranked && ranked.length > 0) {
-        topRecommendation = ranked[0];
-        if (this.mode === 'co_pilot') {
-          const rColor = topRecommendation.risk < 0.2 ? '#00ff88' : topRecommendation.risk < 0.6 ? '#ffcc00' : '#ff4444';
-          coPilotHtml = `
-            <div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.15)">
-              <div style="color:#ffb700"><strong>CO-PILOT RECOMMENDATION</strong></div>
-              <div>RECOMMENDED MOVE: <strong>${topRecommendation.nodeId}</strong> (Risk: <span style="color:${rColor}">${(topRecommendation.risk * 100).toFixed(0)}%</span>, Conf: ${topRecommendation.confidence}%)</div>
-              <div style="font-size:11px; color:#c0d0e0; font-style:italic">"${topRecommendation.reason}"</div>
-            </div>
-          `;
-        }
+      if (rankedBranches.length > 0) {
+        topRec = rankedBranches[0];
       }
     }
 
-    this.hudElement.innerHTML = `
-      <div><strong>MODE</strong>: ${modeLabels[this.mode]} [Press M to switch]</div>
-      <div>SPEED:      ${speed.padStart(3, ' ')} km/h [GEAR: ${gear}]</div>
-      <div>FUEL:       ${fuel.padStart(5, ' ')}%</div>
-      <div>HANDBRAKE:  ${hb} | LIGHTS: ${lights}</div>
-      <div>CAMERA:     ${cam} (Press C)</div>
-      <div style="margin-top:6px"><strong>SENSORS</strong> (Tier: ${this.sensors?.tier?.name ?? 'Normal'})</div>
-      <div>${breezeStr} | ${stenchStr} | ${glitterStr} | ${bumpStr}</div>
-      ${coPilotHtml}
-      <div style="margin-top:6px; font-size:11px; color:#8899aa">
-        [M] Mode [I] Analysis Mode [C] Camera [1-4] Difficulty<br/>
-        [W/A/S/D] Drive [SPACE] Handbrake [TAB] Reverse [E] Interact
-      </div>
-    `;
-
-    // Right Mission Box
-    if (this.missionElement && data.mission) {
-      const m = data.mission;
-      const statusColor = m.completed ? '#00ff88' : m.failed ? '#ff4444' : '#ffcc00';
-      this.missionElement.innerHTML = `
-        <div><strong>MISSION</strong>: ${m.name}</div>
-        <div>STATUS: <span style="color:${statusColor};font-weight:bold">${m.status.toUpperCase()}</span></div>
-        <div>TARGET: ${m.targetDesc}</div>
-        <div>DISTANCE: ${m.distToTarget ? m.distToTarget.toFixed(1) + 'm' : '---'}</div>
-        <div style="font-size:12px; color:#bbccdd; margin-top:4px">${m.instruction}</div>
-      `;
+    if (this.coPilotCard) {
+      if (this.mode === 'co_pilot' && topRec) {
+        this.coPilotCard.update(topRec);
+      } else if (this.mode !== 'co_pilot') {
+        this.coPilotCard.hide();
+      }
     }
 
-    // Live 5-Stage Analysis Pipeline Overlay
-    if (this.showAnalysisMode && this.analysisElement) {
-      this._renderAnalysisPipeline(p, topRecommendation);
+    // 6. Junction Decision UI (updates dynamically with steering angle)
+    if (this.junctionUI) {
+      this.junctionUI.update(p.nodeId, rankedBranches, this.vehicle?.steerAngle ?? 0);
     }
 
-    // Developer Debug Overlay
+    // 7. Developer Debug Overlay (if toggled)
     if (this.showDebugMode && this.debugOverlay) {
       this._renderDeveloperDebug(p);
     }
   }
 
-  _renderAnalysisPipeline(percepts, topRecommendation) {
-    const rawKB = this.kb?.engineKB ?? this.kb;
-    const currNode = percepts.nodeId ?? 'n_0_0';
-    const belief = rawKB?.getBelief(currNode);
+  _updateHazardFeedback(p) {
+    if (!this.vignetteEl) return;
 
-    // 1. OBSERVATION
-    const obsStr = `Thermal: ${percepts.stench ? 'STENCH' : 'none'}, Wind: ${percepts.breeze ? 'BREEZE' : 'none'}, Radar: ${percepts.bump ? 'BUMP' : 'clear'}, Scanner: ${percepts.glitter ? 'GLITTER' : 'none'}, Vis: ${((percepts.visualConfidence ?? 1) * 100).toFixed(0)}%`;
+    // Bump contact
+    if (p.bump && !this.lastHazardState.bump) {
+      if (this.audio) this.audio.playBump();
+      this.vignetteEl.classList.add('danger');
+      setTimeout(() => this.vignetteEl.classList.remove('danger'), 280);
+    }
 
-    // 2. EVIDENCE
-    const evList = belief?.evidence?.length ? belief.evidence.join(', ') : '(none)';
+    // Stench (Hunter vicinity)
+    if (p.stench) {
+      this.vignetteEl.classList.add('stench');
+      if (!this.lastHazardState.stench && this.audio) {
+        this.audio.playStench();
+      }
+    } else {
+      this.vignetteEl.classList.remove('stench');
+    }
 
-    // 3. INFERENCE
-    const pitClausesCount = rawKB?._pitClauses?.size ?? 0;
-    const hunterClausesCount = rawKB?._hunterClauses?.size ?? 0;
-    const isSafe = belief?.safe === true ? 'PROVEN SAFE' : belief?.safe === false ? 'CONFIRMED HAZARD' : 'UNCERTAIN';
-    const infStr = `Node ${currNode}: ${isSafe} | Active OR-clauses: [Pits: ${pitClausesCount}, Hunters: ${hunterClausesCount}] | Hunter Eliminated: ${rawKB?.hunterDead ? 'YES' : 'NO'}`;
+    // Breeze (Pit vicinity)
+    if (p.breeze) {
+      this.vignetteEl.classList.add('caution');
+      if (!this.lastHazardState.breeze && this.audio) {
+        this.audio.playBreeze();
+      }
+    } else {
+      this.vignetteEl.classList.remove('caution');
+    }
 
-    // 4. RISK
-    const riskStr = topRecommendation
-      ? `Best candidate: ${topRecommendation.nodeId} (Risk: ${(topRecommendation.risk * 100).toFixed(1)}%, Confidence: ${topRecommendation.confidence}%) — Reason: "${topRecommendation.reason}"`
-      : 'Evaluating risk surface...';
+    // Glitter (Objective beacon chime)
+    if (p.glitter && !this.lastHazardState.glitter && this.audio) {
+      this.audio.playGlitter();
+    }
 
-    // 5. DECISION
-    const decStr = this.mode === 'ai_driver'
-      ? `AI DRIVER ACTION: Moving to ${topRecommendation?.nodeId ?? 'hold'} (Utility: ${topRecommendation?.utility.toFixed(2) ?? '0.00'})`
-      : `CO-PILOT ADVISORY: Steer toward ${topRecommendation?.nodeId ?? 'none'}`;
-
-    this.analysisElement.innerHTML = `
-      <div style="color:#00e5ff; font-weight:bold; margin-bottom:4px">
-        LIVE STAGE 1 REASONING PIPELINE [ANALYSIS MODE — Press I to hide]
-      </div>
-      <div><span style="color:#ff88aa"><strong>[1. OBSERVATION]</strong></span>: ${obsStr}</div>
-      <div><span style="color:#44bbff"><strong>[2. EVIDENCE]</strong></span>: Ingested tokens at ${currNode}: ${evList}</div>
-      <div><span style="color:#ffcc00"><strong>[3. INFERENCE]</strong></span>: Horn-clause deduction: ${infStr}</div>
-      <div><span style="color:#ff9944"><strong>[4. RISK]</strong></span>: Composite score: ${riskStr}</div>
-      <div><span style="color:#00ff88"><strong>[5. DECISION]</strong></span>: ${decStr}</div>
-    `;
+    this.lastHazardState = {
+      breeze: !!p.breeze,
+      stench: !!p.stench,
+      bump: !!p.bump,
+      glitter: !!p.glitter,
+    };
   }
 
   _renderDeveloperDebug(percepts) {
     const raw = percepts.raw || {};
-    const rawKB = this.kb?.engineKB ?? this.kb;
     const spec = this.world?.spec || {};
-
     const pits = spec.pitNodes ? spec.pitNodes.join(', ') : 'none';
     const hunters = spec.hunterNodes ? spec.hunterNodes.join(', ') : 'none';
     const hunterLiveNode = this.hunter?.currentNodeId ?? 'none';
     const tier = this.sensors?.tier || {};
 
     this.debugOverlay.innerHTML = `
-      <div style="color:#ff4444; font-weight:bold">DEVELOPER DEBUG MODE [Ctrl+Shift+D]</div>
-      <div>TOTAL NODES: ${this.world?.graph?.nodeIds?.length ?? 0} | EDGES: ${this.world?.graph?._edges?.size ?? 0}</div>
+      <div style="color:#ff4444; font-weight:bold; margin-bottom:4px;">DEVELOPER DEBUG MODE [Ctrl+Shift+D]</div>
+      <div>TOTAL NODES: ${this.world?.graph?.nodes?.length ?? 0} | START: ${spec.startId} | OBJ: ${spec.objectiveId}</div>
       <div>GROUND TRUTH PITS: [${pits}]</div>
       <div>STATIC HUNTERS:    [${hunters}]</div>
-      <div>LIVE HUNTER NODE:   <span style="color:#ff00ff;font-weight:bold">${hunterLiveNode}</span> (Move timer: ${(this.hunter?._timer ?? 0).toFixed(1)}s)</div>
-      <div style="margin-top:4px;border-top:1px solid #663333"><strong>SENSOR TRUTH vs NOISY READINGS</strong></div>
+      <div>LIVE HUNTER NODE:   <span style="color:#ff00ff;font-weight:bold">${hunterLiveNode}</span> (Timer: ${(this.hunter?._timer ?? 0).toFixed(1)}s)</div>
+      <div style="margin-top:4px;border-top:1px solid #663333;padding-top:4px;"><strong>SENSOR TRUTH vs NOISY READINGS</strong></div>
       <div>BREEZE:  Raw=${raw.breeze} | Noisy=${percepts.breeze}</div>
       <div>STENCH:  Raw=${raw.stench} | Noisy=${percepts.stench}</div>
       <div>GLITTER: Raw=${raw.glitter} | Noisy=${percepts.glitter}</div>
       <div>BUMP:    Raw=${raw.bump} | Noisy=${percepts.bump}</div>
       <div>TIER:    ${tier.name} (FP: ${(tier.sensorNoise?.falsePositiveRate*100).toFixed(0)}%, FN: ${(tier.sensorNoise?.falseNegativeRate*100).toFixed(0)}%)</div>
-      <div style="color:#888;font-size:10px">Confirms unreachability in normal play</div>
+      <div style="color:#888;font-size:10px;margin-top:2px;">Authoritative Stage 1 validation</div>
     `;
   }
 }
@@ -367,6 +499,6 @@ export class UIManager {
  */
 export async function initUI(state, vehicle, actuators, options = {}) {
   const ui = new UIManager(state, vehicle, actuators, options);
-  console.log('[ui] UIManager initialised with DRIVER / AI DRIVER / CO-PILOT modes and live analysis pipeline');
+  console.log('[ui] Stage 5 UI/UX Suite fully initialized');
   return ui;
 }

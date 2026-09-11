@@ -95,7 +95,7 @@ async function boot() {
   const missions  = await initMissions(state, navigator, { world });
 
   // 11. Presentation Layer (Audio & Three.js Graphics)
-  await initAudio();
+  const audio = await initAudio();
 
   const graphics = await initGraphics(vehicle, world, {
     roads,
@@ -106,9 +106,10 @@ async function boot() {
     hunter,
     aiDriver,
     kb,
+    audio,
   });
 
-  // 12. UI Manager with DRIVER / AI DRIVER / CO-PILOT modes and Analysis pipeline
+  // 12. UI Manager with DRIVER / AI DRIVER / CO-PILOT modes and Stage 5 UI/UX Suite
   const ui = await initUI(state, vehicle, actuators, {
     graphics,
     aiDriver,
@@ -117,6 +118,10 @@ async function boot() {
     sensors,
     hunter,
     world,
+    audio,
+    physics,
+    missions,
+    roads,
   });
   graphics.ui = ui;
 

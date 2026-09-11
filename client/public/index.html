@@ -7,20 +7,9 @@
   <meta name="description" content="Symbolic AI-driven open-world driving game — Wampus World" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: monospace; }
-    #game-canvas { display: block; width: 100%; height: 100%; }
-    #ui-overlay   { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
-    .hud-panel {
-      position: absolute;
-      background: rgba(10, 15, 20, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #e0f0ff;
-      padding: 10px 14px;
-      font-size: 13px;
-      border-radius: 4px;
-      backdrop-filter: blur(4px);
-    }
+    html, body { width: 100%; height: 100%; background: #14161A; overflow: hidden; }
   </style>
+  <link rel="stylesheet" href="/styles/theme.css" />
   <script type="importmap">
   {
     "imports": {
@@ -34,7 +23,10 @@
   <!-- Three.js renders into this canvas -->
   <canvas id="game-canvas"></canvas>
 
-  <!-- React/vanilla UI panels mount here -->
+  <!-- Full-screen hazard feedback vignette overlay -->
+  <div id="hazard-vignette"></div>
+
+  <!-- UI Overlay mount root -->
   <div id="ui-overlay" role="presentation"></div>
 
   <!-- Boot: type="module" enables ES-module imports across the whole client -->

@@ -1,0 +1,221 @@
+/*
+ * theme.css
+ * ─────────────────────────────────────────────────────────────
+ * Wampus World Design System Tokens & Motion Engine
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  /* ── Colors ── */
+  --bg-dark: #14161A;
+  --bg-surface: #1B1E23;
+  --bg-elevated: #22262D;
+
+  /* Smoked Glass */
+  --panel-glass: rgba(24, 27, 32, 0.72);
+  --panel-glass-heavy: rgba(20, 22, 26, 0.88);
+  --panel-glass-light: rgba(30, 34, 42, 0.60);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-hover: rgba(255, 255, 255, 0.18);
+  --border-glass-active: rgba(255, 184, 77, 0.35);
+
+  /* Primary Instrumentation & Identity */
+  --accent-amber: #FFB84D;
+  --accent-amber-glow: rgba(255, 184, 77, 0.28);
+  --accent-amber-dim: rgba(255, 184, 77, 0.15);
+
+  /* Active Sensor Telemetry */
+  --accent-cyan: #4FD1FF;
+  --accent-cyan-glow: rgba(79, 209, 255, 0.28);
+  --accent-cyan-dim: rgba(79, 209, 255, 0.12);
+
+  /* Status Colors */
+  --status-danger: #FF4D4D;
+  --status-danger-glow: rgba(255, 77, 77, 0.32);
+  --status-warning: #FF9933;
+  --status-success: #3DDC84;
+  --status-success-glow: rgba(61, 220, 132, 0.25);
+
+  /* Text */
+  --text-primary: #F0F4F8;
+  --text-secondary: #C0CAD6;
+  --text-muted: #8491A2;
+  --text-disabled: #4C5562;
+
+  /* ── Typography ── */
+  --font-hud: 'Rajdhani', 'Chakra Petch', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ── Motion Tokens (Strictly Shared) ── */
+  --ease-shared: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 120ms;
+  --dur-panel: 280ms;
+  --dur-scene: 450ms;
+
+  /* Transitions */
+  --transition-micro: all var(--dur-micro) var(--ease-shared);
+  --transition-panel: all var(--dur-panel) var(--ease-shared);
+  --transition-scene: all var(--dur-scene) var(--ease-shared);
+}
+
+/* ── Base Reset & Setup ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#game-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+}
+
+#ui-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Enable pointer events on interactive UI containers */
+.interactive-panel {
+  pointer-events: auto;
+}
+
+/* ── Common Smoked Glass Styling ── */
+.glass-panel {
+  background: var(--panel-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  color: var(--text-primary);
+  transition: var(--transition-panel);
+}
+
+.glass-panel:hover {
+  border-color: var(--border-glass-hover);
+}
+
+.glass-panel-heavy {
+  background: var(--panel-glass-heavy);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass-hover);
+  box-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.65);
+}
+
+/* ── Buttons & Interactive Controls ── */
+.sentinel-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  font-family: var(--font-hud);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-micro);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.sentinel-btn:hover {
+  background: var(--accent-amber-dim);
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+  box-shadow: 0 0 16px var(--accent-amber-glow);
+  transform: translateY(-1px);
+}
+
+.sentinel-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 0 8px var(--accent-amber-glow);
+}
+
+.sentinel-btn-primary {
+  background: var(--accent-amber);
+  border-color: var(--accent-amber);
+  color: #0b0c0e;
+  font-weight: 700;
+}
+
+.sentinel-btn-primary:hover {
+  background: #ffc46b;
+  color: #000;
+  box-shadow: 0 0 24px var(--accent-amber-glow);
+}
+
+/* ── Multi-Sensory Hazard Feedback FX ── */
+#hazard-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity var(--dur-panel) var(--ease-shared);
+  opacity: 0;
+}
+
+#hazard-vignette.danger {
+  opacity: 1;
+  background: radial-gradient(circle, transparent 55%, rgba(255, 77, 77, 0.28) 100%);
+  box-shadow: inset 0 0 80px rgba(255, 77, 77, 0.4);
+  animation: hazardJitter 0.18s infinite alternate ease-in-out;
+}
+
+#hazard-vignette.caution {
+  opacity: 1;
+  background: radial-gradient(circle, transparent 65%, rgba(255, 184, 77, 0.2) 100%);
+  box-shadow: inset 0 0 50px rgba(255, 184, 77, 0.25);
+}
+
+#hazard-vignette.stench {
+  opacity: 1;
+  background: radial-gradient(circle, transparent 60%, rgba(255, 0, 68, 0.25) 100%);
+  box-shadow: inset 0 0 60px rgba(255, 0, 68, 0.35);
+}
+
+@keyframes hazardJitter {
+  0% { transform: scale(1.0); }
+  50% { transform: scale(1.006) translate(1px, -1px); }
+  100% { transform: scale(0.996) translate(-1px, 1px); }
+}
+
+/* Scanline Overlay for Field Computer */
+.scanlines {
+  position: relative;
+}
+.scanlines::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+  background-size: 100% 3px;
+  pointer-events: none;
+  opacity: 0.6;
+  border-radius: inherit;
+}
