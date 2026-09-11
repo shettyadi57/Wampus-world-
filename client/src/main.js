@@ -1,19 +1,11 @@
 /**
- * main.js — Client boot sequence (architecture scaffold only)
+ * main.js — Client boot sequence
  * ─────────────────────────────────────────────────────────────
- * This file is the ONLY allowed entry point for the browser client.
- * Its sole job is to import each top-level module and wire the
- * agent loop. No game logic lives here.
- *
- * Agent loop (expanded in ARCHITECTURE.md):
- *   World → Sensors → KnowledgeBase → Inference → Risk → Actuators
- *                                    ↕
- *                              Navigation / Missions
- *
- * Import order reflects dependency graph (leaves first).
+ * Wires together the Three.js graphics, vehicle physics, ActuatorBus,
+ * physical noisy sensors, roaming Hunter entity, Stage 1 reasoning engine,
+ * autonomous AI Driver, and Co-Pilot Analysis Mode.
  */
 
-// ── Subsystem imports (stubs until each module is implemented) ──
 import { initState }       from './state/StateManager.js';
 import { initPersistence } from './persistence/PersistenceManager.js';
 import { initWorld }       from './world/WorldManager.js';
@@ -31,42 +23,107 @@ import { initMissions }    from './missions/MissionController.js';
 import { initAudio }       from './audio/AudioEngine.js';
 import { initGraphics }    from './graphics/GraphicsEngine.js';
 import { initUI }          from './ui/UIManager.js';
+import { HunterEntity }    from './world/HunterEntity.js';
+import { AIDriver }        from './ai/driver/AIDriver.js';
 
 async function boot() {
-  // 1. Core state & persistence (no deps)
+  console.log('[boot] Starting Wampus World Stage 4 AI Systems Integration...');
+
+  // 1. Core state & persistence
   const state       = await initState();
   const persistence = await initPersistence(state);
 
-  // 2. World geometry & generated content
+  // 2. World generation & Road splines
   const world    = await initWorld(state);
   const roads    = await initRoads(world);
-  await initProcgen(world, roads);
 
-  // 3. Physics & vehicle (depend on world)
+  // 3. Physics & Mountain/Forest Environment
   const physics = await initPhysics(world);
+  const region  = await initProcgen(world, roads, physics);
+
+  // 4. Vehicle Controller (spawned at Ranger Station start node)
   const vehicle = await initVehicle(physics, state);
+  const startJunc = roads.junctions.get(world.spec.startId);
+  if (startJunc) {
+    vehicle.spawnPosition = {
+      x: startJunc.position.x,
+      y: startJunc.position.y + 0.5,
+      z: startJunc.position.z,
+    };
+    vehicle.resetTo();
+  }
 
-  // 4. Perception layer
-  const sensors = await initSensors(vehicle, world);
+  // 5. Roaming Hunter Entity
+  const initialHunterNode = world.spec.hunterNodes?.[0] ?? 'n_4_4';
+  const hunter = new HunterEntity(world.graph, roads, {
+    initialNodeId: initialHunterNode,
+  });
 
-  // 5. Actuation layer (both human input and AI share this bus)
+  // 6. Physical SensorArray (Thermal, Wind, Radar, Scanner, Signal, Camera)
+  const sensors = await initSensors(vehicle, world, {
+    hunter,
+    difficulty: state.difficulty ?? 'normal',
+  });
+
+  // 7. Actuation layer (Authoritative ActuatorBus)
   const actuators = await initActuators(vehicle);
 
-  // 6. AI agent stack: Knowledge → Inference → Risk
-  const kb        = await initKnowledge();
-  const inference = await initInference(kb);
-  const risk      = await initRisk(kb, inference);
+  // 8. Stage 1 Symbolic Reasoning Engine
+  const kb        = await initKnowledge(world.graph);
+  const inference = await initInference(kb, world.graph);
+  const risk      = await initRisk(kb, inference, world.graph);
 
-  // 7. Higher-level reasoning
+  // Initial arrival at start node
+  inference.processArrival(world.spec.startId, {
+    breeze: false,
+    stench: false,
+    glitter: false,
+  });
+
+  // 9. Autonomous AI Driver
+  const aiDriver = new AIDriver({
+    graph: world.graph,
+    kb,
+    riskModel: risk,
+    actuators,
+    vehicle,
+    roads,
+  });
+
+  // 10. Navigation & Mission System ("The Silent Checkpoint")
   const navigator = await initNavigation(kb, world, roads);
-  await initMissions(state, navigator);
+  const missions  = await initMissions(state, navigator, { world });
 
-  // 8. Presentation layer
+  // 11. Presentation Layer (Audio & Three.js Graphics)
   await initAudio();
-  await initGraphics(vehicle, world);
-  await initUI(state, vehicle, actuators);
 
-  console.log('[boot] All subsystems initialised — ready.');
+  const graphics = await initGraphics(vehicle, world, {
+    roads,
+    region,
+    physics,
+    sensors,
+    missions,
+    hunter,
+    aiDriver,
+    kb,
+  });
+
+  // 12. UI Manager with DRIVER / AI DRIVER / CO-PILOT modes and Analysis pipeline
+  const ui = await initUI(state, vehicle, actuators, {
+    graphics,
+    aiDriver,
+    riskModel: risk,
+    kb,
+    sensors,
+    hunter,
+    world,
+  });
+  graphics.ui = ui;
+
+  // 13. Start the render and physics loop
+  graphics.startLoop();
+
+  console.log('[boot] Stage 4 AI Systems Integration fully operational.');
 }
 
 boot().catch((err) => {

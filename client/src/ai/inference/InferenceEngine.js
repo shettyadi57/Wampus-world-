@@ -1,46 +1,53 @@
 /**
- * InferenceEngine.js
+ * client/src/ai/inference/InferenceEngine.js
  * ─────────────────────────────────────────────────────────────
- * Symbolic, constraint-based reasoning over the KnowledgeBase.
- *
- * DESIGN MANDATE: This is a REAL reasoning system.
- *   • No LLM calls.
- *   • No hard-coded flavor text substituting for inference.
- *   • No lookup tables disguised as AI.
- *
- * The engine applies logical rules (Horn clauses / forward chaining)
- * to derive new facts from percepts and asserts them back into the KB.
- *
- * Core inference rules (illustrative, non-exhaustive):
- *
- *   ∀n: visited(n) ∧ ¬breeze(n)  → ∀adj(n): ¬pit(adj)
- *   ∀n: visited(n) ∧ ¬stench(n)  → ∀adj(n): ¬wampus(adj)
- *   ∀n: visited(n) ∧ breeze(n)   → ∃adj(n): pit(adj)   [probabilistic]
- *   ∀n: visited(n) ∧ stench(n)   → ∃adj(n): wampus(adj)[probabilistic]
- *   scream()                      → wampusDead := true
- *
- * Glitter is NOT a neighbour inference.
- * Glitter at node n → gold IS at n (same-node fact, not neighbour).
+ * Client adapter for Stage 1 InferenceEngine.
+ * Executes Horn-clause forward-chaining deduction over KnowledgeBase.
  */
 
-/** @typedef {import('./knowledge/KnowledgeBase.js').KnowledgeBaseContext} KBContext */
+import { InferenceEngine as EngineInference } from '../../../../engine/InferenceEngine.js';
+
+export class ClientInferenceEngine {
+  /**
+   * @param {import('../../../../engine/RoadGraph.js').RoadGraph} graph
+   * @param {import('./knowledge/KnowledgeBase.js').ClientKnowledgeBase} kb
+   */
+  constructor(graph, kb) {
+    this.graph = graph;
+    this.kb = kb;
+    const rawKB = kb.engineKB ?? kb;
+    this._engineInference = new EngineInference(graph, rawKB);
+
+    if (typeof kb.setInferenceEngine === 'function') {
+      kb.setInferenceEngine(this._engineInference);
+    }
+  }
+
+  get engineInference() {
+    return this._engineInference;
+  }
+
+  processArrival(nodeId, percepts) {
+    this._engineInference.processArrival(nodeId, percepts);
+  }
+
+  classifyNode(nodeId) {
+    const b = this.kb.getBelief(nodeId);
+    if (!b) return 'unknown';
+    if (b.safe === true) return 'safe';
+    if (b.pit_confirmed || b.hunter_confirmed) return 'unsafe';
+    return 'unknown';
+  }
+}
 
 /**
- * @typedef {Object} InferenceContext
- * @property {function(): void} reason  – run one inference cycle over KB
- * @property {function(string): 'safe'|'unsafe'|'unknown'} classifyNode
+ * @param {import('./knowledge/KnowledgeBase.js').ClientKnowledgeBase} kb
+ * @param {import('../../../../engine/RoadGraph.js').RoadGraph} [graph]
+ * @returns {Promise<ClientInferenceEngine>}
  */
-
-/**
- * @param {KBContext} kb
- * @returns {Promise<InferenceContext>}
- */
-export async function initInference(kb) {
-  // TODO: implement forward-chaining rule engine.
-  //       Rules are encoded as pure functions: (KB) → new facts.
-  console.log('[ai/inference] InferenceEngine initialised (stub)');
-  return {
-    reason:       () => {},
-    classifyNode: () => 'unknown',
-  };
+export async function initInference(kb, graph = null) {
+  const g = graph ?? kb._graph;
+  const inference = new ClientInferenceEngine(g, kb);
+  console.log('[ai/inference] Stage 1 InferenceEngine adapter initialised');
+  return inference;
 }

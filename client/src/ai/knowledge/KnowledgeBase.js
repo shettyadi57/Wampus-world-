@@ -1,52 +1,80 @@
 /**
- * KnowledgeBase.js
+ * client/src/ai/knowledge/KnowledgeBase.js
  * ─────────────────────────────────────────────────────────────
- * The agent's world model — the ONLY place where inferred facts
- * about the world are stored and queried.
- *
- * The KB is populated exclusively by:
- *   1. Percept frames delivered by SensorArray
- *   2. Logical consequences derived by InferenceEngine
- *
- * It NEVER reads WorldManager directly. The world is a black box
- * from the agent's perspective.
- *
- * Data model:
- *   visited    : Set<nodeId>      – nodes the vehicle has entered
- *   safeNodes  : Set<nodeId>      – nodes proven free of Pit & Wampus
- *   pitNodes   : Set<nodeId>      – nodes confirmed to contain a Pit
- *   wampusNode : nodeId | null    – confirmed Wampus location (if known)
- *   breezeNodes: Set<nodeId>      – nodes where BREEZE was perceived
- *   stenchNodes: Set<nodeId>      – nodes where STENCH was perceived
- *   goldFound  : boolean          – whether GLITTER was perceived (same node)
- *   wampusDead : boolean          – whether SCREAM was received
- *   perceptLog : PerceptFrame[]   – full chronological percept history
+ * Client adapter for Stage 1 KnowledgeBase.
+ * Populated exclusively by physical sensor percepts.
  */
 
-/** @typedef {import('../sensors/SensorArray.js').PerceptFrame} PerceptFrame */
+import { KnowledgeBase as EngineKB } from '../../../../engine/KnowledgeBase.js';
+import { RoadGraph } from '../../../../engine/RoadGraph.js';
+
+export class ClientKnowledgeBase {
+  /**
+   * @param {RoadGraph} [graph]
+   */
+  constructor(graph = null) {
+    this._graph = graph ?? new RoadGraph();
+    this._engineKB = new EngineKB(this._graph);
+    this._log = [];
+    this._inferenceEngine = null;
+  }
+
+  setInferenceEngine(engine) {
+    this._inferenceEngine = engine;
+  }
+
+  get engineKB() {
+    return this._engineKB;
+  }
+
+  ingest(perceptFrame) {
+    if (!perceptFrame) return;
+    this._log.push({ ...perceptFrame });
+
+    if (this._inferenceEngine && perceptFrame.nodeId) {
+      this._inferenceEngine.processArrival(perceptFrame.nodeId, perceptFrame);
+    }
+  }
+
+  isSafe(nodeId) {
+    return this._engineKB.getBelief(nodeId)?.safe === true;
+  }
+
+  hasPit(nodeId) {
+    return this._engineKB.getBelief(nodeId)?.pit_confirmed === true;
+  }
+
+  getWampusNode() {
+    for (const [id, belief] of this._engineKB._beliefs) {
+      if (belief.hunter_confirmed) return id;
+    }
+    return null;
+  }
+
+  getBelief(nodeId) {
+    return this._engineKB.getBelief(nodeId);
+  }
+
+  snapshot() {
+    return this._engineKB.snapshot();
+  }
+
+  getLog() {
+    return [...this._log];
+  }
+
+  reset() {
+    this._log = [];
+    this._engineKB = new EngineKB(this._graph);
+  }
+}
 
 /**
- * @typedef {Object} KnowledgeBaseContext
- * @property {function(PerceptFrame): void} ingest   – add a percept frame
- * @property {function(string): boolean} isSafe       – is node provably safe?
- * @property {function(string): boolean} hasPit       – is pit confirmed?
- * @property {function(): string|null} getWampusNode  – confirmed location or null
- * @property {function(): PerceptFrame[]} getLog      – full percept history
- * @property {function(): void} reset                 – clear for new game
+ * @param {RoadGraph} [graph]
+ * @returns {Promise<ClientKnowledgeBase>}
  */
-
-/**
- * @returns {Promise<KnowledgeBaseContext>}
- */
-export async function initKnowledge() {
-  // TODO: implement fact storage, update logic, and query methods.
-  console.log('[ai/knowledge] KnowledgeBase initialised (stub)');
-  return {
-    ingest:        () => {},
-    isSafe:        () => false,
-    hasPit:        () => false,
-    getWampusNode: () => null,
-    getLog:        () => [],
-    reset:         () => {},
-  };
+export async function initKnowledge(graph = null) {
+  const kb = new ClientKnowledgeBase(graph);
+  console.log('[ai/knowledge] Stage 1 KnowledgeBase adapter initialised');
+  return kb;
 }

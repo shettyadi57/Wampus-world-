@@ -7,10 +7,28 @@
   <meta name="description" content="Symbolic AI-driven open-world driving game — Wampus World" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: monospace; }
     #game-canvas { display: block; width: 100%; height: 100%; }
     #ui-overlay   { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+    .hud-panel {
+      position: absolute;
+      background: rgba(10, 15, 20, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e0f0ff;
+      padding: 10px 14px;
+      font-size: 13px;
+      border-radius: 4px;
+      backdrop-filter: blur(4px);
+    }
   </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/node_modules/three/build/three.module.js",
+      "three/addons/": "/node_modules/three/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
   <!-- Three.js renders into this canvas -->

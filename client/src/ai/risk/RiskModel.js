@@ -1,52 +1,46 @@
 /**
- * RiskModel.js
+ * client/src/ai/risk/RiskModel.js
  * ─────────────────────────────────────────────────────────────
- * Quantifies the danger of each candidate action and produces a
- * ranked action set for the AI Driver to execute.
- *
- * The risk model sits between InferenceEngine and the ActuatorBus:
- *   InferenceEngine classifies nodes → RiskModel scores actions →
- *   AIDriver selects and issues actuator commands.
- *
- * Risk scoring approach (constraint-based, not statistical ML):
- *   • Each candidate move target node gets a risk score ∈ [0, 1].
- *   • Score 0.0 = provably safe (visited, no hazards inferred).
- *   • Score 1.0 = provably lethal (confirmed Pit or confirmed Wampus).
- *   • Score in (0, 1) = uncertain — risk proportional to unresolved
- *     constraint count.
- *   • Utility = (expected reward) / (1 + risk).
- *   • Agent always chooses max-utility safe move; falls back to
- *     min-risk uncertain move if no safe move exists.
+ * Client adapter for Stage 1 RiskModel.
+ * Scores risk and utility for candidate moves based on OR-clauses and proven facts.
  */
 
-/** @typedef {import('../knowledge/KnowledgeBase.js').KnowledgeBaseContext} KBContext */
-/** @typedef {import('../inference/InferenceEngine.js').InferenceContext} InferenceContext */
+import { RiskModel as EngineRiskModel } from '../../../../engine/RiskModel.js';
 
-/**
- * @typedef {Object} RankedAction
- * @property {string} actionType   – 'move' | 'scan' | 'interact' | 'shoot'
- * @property {string} [targetNode] – for 'move' actions
- * @property {number} risk         – ∈ [0, 1]
- * @property {number} utility      – ∈ [0, ∞)
- */
+export class ClientRiskModel {
+  /**
+   * @param {import('../../../../engine/RoadGraph.js').RoadGraph} graph
+   * @param {import('../knowledge/KnowledgeBase.js').ClientKnowledgeBase} kb
+   */
+  constructor(graph, kb) {
+    this.graph = graph;
+    this.kb = kb;
+    const rawKB = kb.engineKB ?? kb;
+    this._engineRisk = new EngineRiskModel(graph, rawKB);
+  }
 
-/**
- * @typedef {Object} RiskModelContext
- * @property {function(string[]): RankedAction[]} rankActions
- *   candidateNodeIds → ranked list of actions (best first)
- */
+  get engineRisk() {
+    return this._engineRisk;
+  }
+
+  scoreNode(nodeId, opts) {
+    return this._engineRisk.scoreNode(nodeId, opts);
+  }
+
+  rankNeighbors(agentNode, opts = {}) {
+    return this._engineRisk.rankNeighbors(agentNode, opts);
+  }
+}
 
 /**
- * @param {KBContext} kb
- * @param {InferenceContext} inference
- * @returns {Promise<RiskModelContext>}
+ * @param {import('../knowledge/KnowledgeBase.js').ClientKnowledgeBase} kb
+ * @param {Object} inference
+ * @param {import('../../../../engine/RoadGraph.js').RoadGraph} [graph]
+ * @returns {Promise<ClientRiskModel>}
  */
-export async function initRisk(kb, inference) {
-  // TODO: implement constraint-based utility scoring.
-  console.log('[ai/risk] RiskModel initialised (stub)');
-  return {
-    rankActions: (candidates) => candidates.map((id) => ({
-      actionType: 'move', targetNode: id, risk: 0.5, utility: 0.5,
-    })),
-  };
+export async function initRisk(kb, inference, graph = null) {
+  const g = graph ?? kb._graph;
+  const risk = new ClientRiskModel(g, kb);
+  console.log('[ai/risk] Stage 1 RiskModel adapter initialised');
+  return risk;
 }

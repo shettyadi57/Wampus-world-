@@ -66,6 +66,13 @@ function setHeaders(res, filePath) {
 
 // ─── Static file serving ───────────────────────────────────────
 const CLIENT_DIR = path.join(__dirname, '..', 'client', 'public');
+const SRC_DIR    = path.join(__dirname, '..', 'client', 'src');
+const ENGINE_DIR = path.join(__dirname, '..', 'engine');
+const NM_DIR     = path.join(__dirname, '..', 'node_modules');
+
+app.use('/src', express.static(SRC_DIR, { setHeaders, redirect: false, dotfiles: 'allow' }));
+app.use('/engine', express.static(ENGINE_DIR, { setHeaders, redirect: false, dotfiles: 'allow' }));
+app.use('/node_modules', express.static(NM_DIR, { setHeaders, redirect: false, dotfiles: 'allow' }));
 
 app.use(
   express.static(CLIENT_DIR, {

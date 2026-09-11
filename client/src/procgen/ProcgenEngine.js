@@ -1,24 +1,29 @@
 /**
  * ProcgenEngine.js
  * ─────────────────────────────────────────────────────────────
- * Owns procedural content generation: terrain mesh, foliage,
- * building placement, weather seed, and world event seeding.
- *
- * Procgen reads the logical WorldContext and RoadNetworkContext
- * then decorates Three.js scene objects — it does NOT mutate the
- * logical world graph itself.
- *
- * Seeded determinism: all RNG must use a user-visible world seed
- * so the same seed always produces the same world.
+ * Builds the Mountain/Forest 3D procedural environment around the
+ * road network and registers collider obstacles with physics.
  */
 
+import { MountainForestRegion } from '../world/MountainForestRegion.js';
+
 /**
- * @param {import('../world/WorldManager.js').WorldContext} world
- * @param {import('../roads/RoadNetwork.js').RoadNetworkContext} roads
- * @returns {Promise<void>}
+ * @param {Object} world
+ * @param {import('../roads/RoadNetwork.js').RoadNetwork} roads
+ * @param {import('../physics/PhysicsEngine.js').PhysicsEngine} physics
+ * @returns {Promise<MountainForestRegion>}
  */
-export async function initProcgen(world, roads) {
-  // TODO: chunk-based terrain generation, L-system foliage,
-  //       building grammar, texture splatting.
-  console.log('[procgen] ProcgenEngine initialised (stub)');
+export async function initProcgen(world, roads, physics) {
+  const region = new MountainForestRegion(roads, world.spec, physics, {
+    seed: world.spec?.seed ?? 42,
+  });
+
+  // Bind terrain and road network to physics engine
+  physics.setEnvironment({
+    roadNetwork: roads,
+    terrain: region,
+  });
+
+  console.log('[procgen] MountainForestRegion generated and bound to physics');
+  return region;
 }
