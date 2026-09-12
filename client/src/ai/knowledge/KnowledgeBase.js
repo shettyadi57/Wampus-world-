@@ -44,6 +44,36 @@ export class ClientKnowledgeBase {
     return this._engineKB.getBelief(nodeId)?.pit_confirmed === true;
   }
 
+  getPitProbability(nodeId) {
+    const b = this._engineKB.getBelief(nodeId);
+    if (!b) return 0;
+    if (b.pit_confirmed) return 1.0;
+    if (b.pit_safe) return 0.0;
+    if (b.pit_possible) return 0.5;
+    return 0.1;
+  }
+
+  getHunterProbability(nodeId) {
+    const b = this._engineKB.getBelief(nodeId);
+    if (!b) return 0;
+    if (b.hunter_confirmed) return 1.0;
+    if (b.hunter_safe) return 0.0;
+    if (b.hunter_possible) return 0.5;
+    return 0.1;
+  }
+
+  markPit(nodeId, reason = 'confirmed') {
+    this._engineKB.setPitConfirmed(nodeId, reason);
+  }
+
+  markHunter(nodeId, reason = 'confirmed') {
+    this._engineKB.setHunterConfirmed(nodeId, reason);
+  }
+
+  markSafe(nodeId, reason = 'visited') {
+    this._engineKB.markVisited(nodeId);
+  }
+
   getWampusNode() {
     for (const [id, belief] of this._engineKB._beliefs) {
       if (belief.hunter_confirmed) return id;

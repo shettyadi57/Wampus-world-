@@ -317,6 +317,7 @@ export class AudioEngine {
    * @param {number} [speedKph=25]
    */
   playCollision(speedKph = 25) {
+    this.emitCaption(`[Impact: Collision contact (${Math.round(speedKph)} km/h)]`, 'hazard');
     this._initContext();
     if (!this.ctx) return;
 
@@ -365,8 +366,6 @@ export class AudioEngine {
 
     noise.start(t);
     noise.stop(t + 0.26);
-
-    this.emitCaption(`[Impact: Collision contact (${Math.round(speedKph)} km/h)]`, 'hazard');
   }
 
   // ─── Procedural Weather Ambience ──────────────────────────────
@@ -433,6 +432,14 @@ export class AudioEngine {
    * @param {'safe'|'warning'|'decision'} type
    */
   playAIChime(type = 'safe') {
+    if (type === 'safe') {
+      this.emitCaption('[AI Co-Pilot: Safe route verified by deduction]', 'ai');
+    } else if (type === 'warning') {
+      this.emitCaption('[AI Co-Pilot: Threat hazard detected ahead]', 'ai');
+    } else {
+      this.emitCaption('[AI Driver: Vector trajectory committed]', 'ai');
+    }
+
     this._initContext();
     if (!this.ctx) return;
 
@@ -458,8 +465,6 @@ export class AudioEngine {
         osc.start(t + idx * 0.07);
         osc.stop(t + idx * 0.07 + 0.55);
       });
-      this.emitCaption('[AI Co-Pilot: Safe route verified by deduction]', 'ai');
-
     } else if (type === 'warning') {
       // Dissonant tactical warning ping: 740 Hz -> 880 Hz square
       const osc = this.ctx.createOscillator();
@@ -477,8 +482,6 @@ export class AudioEngine {
 
       osc.start(t);
       osc.stop(t + 0.25);
-      this.emitCaption('[AI Co-Pilot: Threat hazard detected ahead]', 'ai');
-
     } else {
       // Single tactical decision confirmation blip (660 Hz sine)
       const osc = this.ctx.createOscillator();
@@ -494,7 +497,6 @@ export class AudioEngine {
 
       osc.start(t);
       osc.stop(t + 0.14);
-      this.emitCaption('[AI Driver: Vector trajectory committed]', 'ai');
     }
   }
 
@@ -567,6 +569,7 @@ export class AudioEngine {
   // ─── Hazard & Game Percept Audio Cues ─────────────────────────
 
   playBreeze() {
+    this.emitCaption('[Sensor Breeze: Barometric pressure drop — pit cavity nearby]', 'sensor');
     this._initContext();
     if (!this.ctx) return;
 
@@ -591,11 +594,10 @@ export class AudioEngine {
 
     osc.start();
     osc.stop(this.ctx.currentTime + 0.85);
-
-    this.emitCaption('[Sensor: Barometric pressure drop — pit cavity nearby]', 'sensor');
   }
 
   playStench() {
+    this.emitCaption('[Sensor Stench: Thermal air stench — Hunter pheromone signature]', 'sensor');
     this._initContext();
     if (!this.ctx) return;
 
@@ -620,11 +622,10 @@ export class AudioEngine {
     osc2.start();
     osc1.stop(this.ctx.currentTime + 1.25);
     osc2.stop(this.ctx.currentTime + 1.25);
-
-    this.emitCaption('[Sensor: Thermal air stench — Hunter pheromone signature]', 'sensor');
   }
 
   playGlitter() {
+    this.emitCaption('[Sensor Glitter: Objective beacon resonance — checkpoint in range]', 'sensor');
     this._initContext();
     if (!this.ctx) return;
 
@@ -646,11 +647,10 @@ export class AudioEngine {
       osc.start(this.ctx.currentTime + idx * 0.08);
       osc.stop(this.ctx.currentTime + idx * 0.08 + 0.65);
     });
-
-    this.emitCaption('[Sensor: Objective beacon resonance — checkpoint in range]', 'sensor');
   }
 
   playBump() {
+    this.emitCaption('[Actuator: Chassis bump obstacle contact]', 'hazard');
     this._initContext();
     if (!this.ctx) return;
 
@@ -669,11 +669,10 @@ export class AudioEngine {
 
     osc.start();
     osc.stop(this.ctx.currentTime + 0.25);
-
-    this.emitCaption('[Actuator: Chassis bump obstacle contact]', 'hazard');
   }
 
   playHorn() {
+    this.emitCaption('[Horn: Acoustic blast]', 'vehicle');
     this._initContext();
     if (!this.ctx) return;
 
@@ -693,8 +692,6 @@ export class AudioEngine {
       osc.start();
       osc.stop(this.ctx.currentTime + 0.5);
     });
-
-    this.emitCaption('[Horn: Acoustic blast]', 'vehicle');
   }
 
   playClick() {
@@ -717,6 +714,7 @@ export class AudioEngine {
   }
 
   playAlert() {
+    this.emitCaption('[Alert: Priority tactical alert]', 'system');
     this._initContext();
     if (!this.ctx) return;
 
@@ -735,11 +733,10 @@ export class AudioEngine {
 
     osc.start();
     osc.stop(this.ctx.currentTime + 0.22);
-
-    this.emitCaption('[Alert: Priority tactical alert]', 'system');
   }
 
   playAchievement() {
+    this.emitCaption('[Achievement: Directives Accomplished!]', 'system');
     this._initContext();
     if (!this.ctx) return;
 
@@ -763,8 +760,6 @@ export class AudioEngine {
       osc.start(t + idx * 0.09);
       osc.stop(t + idx * 0.09 + 0.75);
     });
-
-    this.emitCaption('[Achievement: Directives Accomplished!]', 'system');
   }
 }
 

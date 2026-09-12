@@ -28,6 +28,7 @@ export class PersistenceManager {
     this.storage = storage || (typeof window !== 'undefined' ? window.localStorage : null);
     this._autoSaveTimer = null;
     this._lastSaveHash = '';
+    this._unsubscribe = null;
 
     this._bindAutoSave();
   }
@@ -36,7 +37,7 @@ export class PersistenceManager {
     if (!this.state || typeof this.state.subscribe !== 'function') return;
 
     // Debounced auto-save on state mutation
-    this.state.subscribe((currentState, prevState) => {
+    this._unsubscribe = this.state.subscribe((currentState, prevState) => {
       if (!prevState) return;
 
       // Check if critical persistent properties changed
@@ -59,6 +60,17 @@ export class PersistenceManager {
     this._autoSaveTimer = setTimeout(() => {
       this.save(slot, { isAutoSave: true });
     }, delayMs);
+  }
+
+  destroy() {
+    if (this._autoSaveTimer) {
+      clearTimeout(this._autoSaveTimer);
+      this._autoSaveTimer = null;
+    }
+    if (typeof this._unsubscribe === 'function') {
+      this._unsubscribe();
+      this._unsubscribe = null;
+    }
   }
 
   /**
