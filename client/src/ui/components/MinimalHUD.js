@@ -170,6 +170,8 @@ export class MinimalHUD {
     this.rpmArc = gaugeWrapper.querySelector('#rpm-arc-bar');
     this.fuelPct = this.barsContainer.querySelector('#fuel-pct');
     this.fuelBar = this.barsContainer.querySelector('#fuel-bar-fill');
+    this.hullPct = this.barsContainer.querySelector('#hull-pct');
+    this.hullBar = this.barsContainer.querySelector('#hull-bar-fill');
     this.gearP = this.gearContainer.querySelector('#gear-P');
     this.gearR = this.gearContainer.querySelector('#gear-R');
     this.gearN = this.gearContainer.querySelector('#gear-N');
@@ -211,6 +213,23 @@ export class MinimalHUD {
       } else {
         this.fuelBar.style.background = 'var(--accent-amber)';
         if (this.fuelPct) this.fuelPct.style.color = 'var(--accent-amber)';
+      }
+    }
+
+    // 4. Hull Integrity bar
+    const hullVal = Math.max(0, Math.min(100, vehicle.hullIntegrity ?? 100));
+    if (this.hullPct) this.hullPct.textContent = `${Math.round(hullVal)}%`;
+    if (this.hullBar) {
+      this.hullBar.style.width = `${hullVal}%`;
+      if (hullVal < 25) {
+        this.hullBar.style.background = 'var(--status-danger)';
+        if (this.hullPct) this.hullPct.style.color = 'var(--status-danger)';
+      } else if (hullVal < 50) {
+        this.hullBar.style.background = 'var(--status-warning)';
+        if (this.hullPct) this.hullPct.style.color = 'var(--status-warning)';
+      } else {
+        this.hullBar.style.background = 'var(--status-success)';
+        if (this.hullPct) this.hullPct.style.color = 'var(--status-success)';
       }
     }
 

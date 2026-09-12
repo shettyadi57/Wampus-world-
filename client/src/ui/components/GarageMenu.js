@@ -22,7 +22,8 @@ export class GarageMenu {
     this.isOpen = false;
 
     // Installed upgrades set
-    this.installed = new Set();
+    const savedUpgrades = this.context.state?.get ? (this.context.state.get().upgrades || []) : [];
+    this.installed = new Set(savedUpgrades);
 
     this.upgrades = [
       {
@@ -198,6 +199,19 @@ export class GarageMenu {
     } else {
       this.installed.add(id);
       up.apply(this.context.vehicle, this.context.sensors);
+    }
+
+    // Persist upgrades in game state
+    if (this.context.state && typeof this.context.state.mutate === 'function') {
+      this.context.state.mutate({ upgrades: [...this.installed] });
+    }
+
+    // Notify stats and achievements
+    if (this.context.statsTracker) {
+      this.context.statsTracker.recordUpgradeInstalled(this.installed.size);
+    }
+    if (this.context.achievementManager) {
+      this.context.achievementManager.notifyUpgradesChanged(this.installed.size);
     }
 
     this._renderCards();

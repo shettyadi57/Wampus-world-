@@ -13,7 +13,7 @@ export class GraphicsEngine {
   /**
    * @param {Object} context
    */
-  constructor({ canvas, vehicle, world, roads, region, physics, sensors, missions, ui, hunter, aiDriver, kb }) {
+  constructor({ canvas, vehicle, world, roads, region, physics, sensors, missions, ui, hunter, aiDriver, kb, audio }) {
     this.canvas = canvas;
     this.vehicle = vehicle;
     this.world = world;
@@ -26,14 +26,29 @@ export class GraphicsEngine {
     this.hunter = hunter;
     this.aiDriver = aiDriver;
     this.kb = kb;
+    this.audio = audio;
 
     this.isRunning = false;
     this.clock = new THREE.Clock();
+    this.fps = 60;
+    this.lastFpsTime = performance.now();
+    this.framesCount = 0;
 
     this._initThree();
     this._buildLightingAndFog();
     this._buildVehicleMesh();
     this._initScene();
+    this._bindCollisionFeedback();
+  }
+
+  _bindCollisionFeedback() {
+    if (!this.vehicle) return;
+    this.vehicle.onCollision = (speedKph) => {
+      if (this.audio) this.audio.playCollision(speedKph);
+      if (this.cameraController) {
+        this.cameraController.triggerShake(Math.min(1.2, Math.max(0.3, speedKph / 25)), 0.35);
+      }
+    };
   }
 
   _initThree() {
@@ -202,6 +217,15 @@ export class GraphicsEngine {
 
       const dt = Math.min(this.clock.getDelta(), 0.05);
 
+      // 0. Frame rate tracking
+      this.framesCount++;
+      const now = performance.now();
+      if (now - this.lastFpsTime >= 1000) {
+        this.fps = Math.round((this.framesCount * 1000) / (now - this.lastFpsTime));
+        this.framesCount = 0;
+        this.lastFpsTime = now;
+      }
+
       // 1. Hunter Roaming Update
       if (this.hunter) {
         const rawNode = this.sensors?.sampleGroundTruth?.()?.nodeId;
@@ -232,7 +256,31 @@ export class GraphicsEngine {
         this.missions.tick(dt, this.vehicle, perceptFrame);
       }
 
-      // 6. Update Vehicle Visual Mesh
+      // 6. Procedural Audio Updates (Engine, Tires, Weather, Hunter Dread Drone)
+      if (this.audio && this.vehicle) {
+        const spd = this.vehicle.getSpeedKph();
+        const throttle = this.vehicle.throttleDemand ?? 0;
+        const rpmNorm = Math.min(1.0, (spd / 120.0) * 0.7 + throttle * 0.35);
+
+        this.audio.updateEngine(rpmNorm, throttle, spd);
+        this.audio.updateTires(
+          this.vehicle.brakeDemand > 0.05 || this.vehicle.handbrakeEngaged,
+          spd,
+          this.vehicle.handbrakeEngaged && spd > 10
+        );
+        this.audio.updateWeather(spd);
+
+        // Distance to Hunter for Dread Drone
+        if (this.hunter) {
+          const hp = this.hunter.position || (this.roads?.junctions?.get(this.hunter.currentNodeId)?.position);
+          if (hp) {
+            const hDist = Math.hypot(this.vehicle.position.x - hp.x, this.vehicle.position.z - hp.z);
+            this.audio.updateHunterDrone(hDist);
+          }
+        }
+      }
+
+      // 7. Update Vehicle Visual Mesh
       if (this.vehicle && this.vehicleGroup) {
         const vp = this.vehicle.position;
         this.vehicleGroup.position.set(vp.x, vp.y, vp.z);
@@ -258,17 +306,19 @@ export class GraphicsEngine {
         }
       }
 
-      // 7. Update Camera
+      // 8. Update Camera
       if (this.cameraController) {
         this.cameraController.update(dt);
       }
 
-      // 8. Update HUD Overlay
+      // 9. Update HUD Overlay
       if (this.ui && typeof this.ui.updateHUD === 'function') {
         this.ui.updateHUD({
+          fps: this.fps,
           speedKph: this.vehicle.getSpeedKph(),
           fuelRemaining: this.vehicle.fuelRemaining,
           tankCapacity: this.vehicle.tankCapacity,
+          hullIntegrity: this.vehicle.hullIntegrity ?? 100,
           reverse: this.vehicle.reverseEngaged,
           handbrake: this.vehicle.handbrakeEngaged,
           headlights: this.vehicle.headlightsOn,
@@ -278,7 +328,7 @@ export class GraphicsEngine {
         });
       }
 
-      // 9. Render Scene
+      // 10. Render Scene
       this.renderer.render(this.scene, this.camera);
     };
 
@@ -309,6 +359,10 @@ export async function initGraphics(vehicle, world, options = {}) {
     sensors: options.sensors,
     missions: options.missions,
     ui: options.ui,
+    hunter: options.hunter,
+    aiDriver: options.aiDriver,
+    kb: options.kb,
+    audio: options.audio,
   });
 
   console.log('[graphics] GraphicsEngine initialised');

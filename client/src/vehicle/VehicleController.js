@@ -44,10 +44,11 @@ export class VehicleController {
     this.reverseEngaged = false;
     this.headlightsOn = false;
 
-    // ── Fuel system ──
+    // ── Fuel & Hull system ──
     this.fuelRemaining = config.startingFuel ?? 100;
     this.tankCapacity = config.tankCapacity ?? 100;
     this.fuelEmpty = false;
+    this.hullIntegrity = config.hullIntegrity ?? 100;
 
     // ── Suspension & Feel ──
     this.suspensionHeight = 0.45;
@@ -59,6 +60,7 @@ export class VehicleController {
 
     // ── Collision / Bump callback ──
     this.onBump = null;
+    this.onCollision = null;
     this.onInteract = null;
     this.onScan = null;
     this.onHorn = null;
@@ -222,13 +224,23 @@ export class VehicleController {
       // Bounce velocity along collision normal with restitution
       const normalVelocity = this.velocity.x * col.nx + this.velocity.z * col.nz;
       if (normalVelocity < 0) {
+        const impactSpeedKph = Math.abs(normalVelocity) * 3.6;
         const restitution = 0.35;
         this.velocity.x -= (1 + restitution) * normalVelocity * col.nx;
         this.velocity.z -= (1 + restitution) * normalVelocity * col.nz;
 
+        // Damage hull on severe impact
+        if (impactSpeedKph > 15) {
+          const damage = Math.round(impactSpeedKph * 0.35);
+          this.hullIntegrity = Math.max(0, this.hullIntegrity - damage);
+        }
+
         // Trigger bump percept event
         if (typeof this.onBump === 'function') {
-          this.onBump(col.obstacle);
+          this.onBump(col.obstacle, impactSpeedKph);
+        }
+        if (typeof this.onCollision === 'function') {
+          this.onCollision(impactSpeedKph, col.obstacle);
         }
       }
     }
@@ -283,6 +295,7 @@ export class VehicleController {
     this.brakeDemand = 0;
     this.handbrakeEngaged = false;
     this.reverseEngaged = false;
+    this.hullIntegrity = 100;
     console.log(`[vehicle] Reset to position (${this.position.x.toFixed(1)}, ${this.position.z.toFixed(1)})`);
   }
 

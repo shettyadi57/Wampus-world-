@@ -84,6 +84,7 @@ export class FieldComputer {
       { id: 'evidence', label: '3. EVIDENCE & KNOWLEDGE' },
       { id: 'routes', label: '4. ROUTE COMPARISON' },
       { id: 'missions', label: '5. MISSION DIRECTIVES' },
+      { id: 'stats', label: '6. STATS & ACHIEVEMENTS' },
     ];
 
     tabs.forEach(tab => {
@@ -167,6 +168,9 @@ export class FieldComputer {
         break;
       case 'missions':
         this._renderMissions();
+        break;
+      case 'stats':
+        this._renderStats();
         break;
     }
   }
@@ -531,6 +535,116 @@ export class FieldComputer {
             <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">TACTICAL BRIEFING</span>
             <div style="font-size:12px; line-height:1.6; color:var(--text-secondary); margin-top:4px;">
               Traverse the treacherous mountain passes to reach the designated objective. Watch barometric breeze and thermal stench anomalies. Maintain fuel reserves by pacing throttle demand.
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+   * 6. EXPEDITION TELEMETRY & ACHIEVEMENTS MATRIX
+   * ───────────────────────────────────────────────────────────── */
+  _renderStats() {
+    const state = this.context.state?.get ? this.context.state.get() : {};
+    const stats = this.context.statsTracker?.getSummary ? this.context.statsTracker.getSummary() : (state.stats || {});
+    const achievements = state.achievements || {};
+
+    const achList = Object.entries(achievements).map(([id, ach]) => {
+      const isUnlocked = !!ach.unlocked;
+      const statusColor = isUnlocked ? 'var(--status-success)' : 'var(--text-disabled)';
+      const badgeText = isUnlocked ? 'UNLOCKED' : 'LOCKED';
+      const dateStr = ach.unlockedAt ? new Date(ach.unlockedAt).toLocaleTimeString() : 'Pending';
+
+      return `
+        <div class="glass-panel" style="padding:10px 14px; display:flex; justify-content:space-between; align-items:center; border-left:3px solid ${statusColor};">
+          <div>
+            <div style="font-family:var(--font-hud); font-size:13px; font-weight:700; color:${isUnlocked ? 'var(--text-primary)' : 'var(--text-muted)'};">
+              ${ach.name}
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
+              ${ach.desc}
+            </div>
+          </div>
+          <div style="text-align:right; flex-shrink:0;">
+            <span style="font-family:var(--font-hud); font-size:11px; font-weight:700; color:${statusColor}; background:rgba(255,255,255,0.04); padding:2px 8px; border-radius:3px; display:inline-block;">
+              ${badgeText}
+            </span>
+            <div style="font-size:9px; color:var(--text-muted); margin-top:2px;">${dateStr}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.contentArea.innerHTML = `
+      <div style="display:flex; flex-direction:column; height:100%; gap:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-family:var(--font-hud); font-size:20px; font-weight:700; color:var(--accent-amber);">
+            EXPEDITION TELEMETRY & ACHIEVEMENTS MATRIX
+          </div>
+          <div style="font-size:11px; color:var(--accent-cyan); font-family:var(--font-mono);">
+            DATA ENGINE: VERIFIED REAL-TIME LOGGING
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; flex:1; overflow-y:auto;">
+          <!-- Left Column: Genuine Live Telemetry Metrics -->
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="font-family:var(--font-hud); font-size:12px; font-weight:700; color:var(--text-muted); letter-spacing:0.1em;">
+              AUTHENTIC EXPEDITION TELEMETRY
+            </div>
+
+            <div class="glass-panel" style="padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">DISTANCE DRIVEN</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--accent-amber);">${stats.distanceDrivenKm ?? '0.00'} KM</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">(${stats.distanceDrivenMeters ?? 0} meters)</span>
+              </div>
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">FUEL CONSUMED</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--accent-cyan);">${stats.fuelConsumedLiters ?? 0} L</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">Direct powertrain burn</span>
+              </div>
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">SECTORS EXPLORED</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--text-primary);">${stats.nodesExploredCount ?? 0}</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">Unique road nodes</span>
+              </div>
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">HAZARDS SENSED</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--status-warning);">${stats.hazardsDetected ?? 0}</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">Pits / Stench / Bumps</span>
+              </div>
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">JUNCTION DECISIONS</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--text-primary);">${stats.decisionsMade ?? 0}</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">${stats.aiDecisionsFollowed ?? 0} followed AI advice</span>
+              </div>
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">HUNTER ENCOUNTERS</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--status-danger);">${stats.hunterEncounters ?? 0}</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">Within 40m perimeter</span>
+              </div>
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">REBEL VECTOR CHOICES</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--accent-amber);">${stats.rebelDecisionsCount ?? 0}</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">Defied AI warnings</span>
+              </div>
+              <div>
+                <span style="font-size:10px; color:var(--text-muted); display:block;">CLEAN RUN JUNCTIONS</span>
+                <span style="font-family:var(--font-hud); font-size:22px; font-weight:700; color:var(--status-success);">${stats.cleanJunctionsCount ?? 0}</span>
+                <span style="font-size:9px; color:var(--text-muted); display:block;">Zero anomaly passes</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: All 7 Operational Achievements -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-family:var(--font-hud); font-size:12px; font-weight:700; color:var(--text-muted); letter-spacing:0.1em;">
+              DIRECTIVES & ACHIEVEMENTS (7 CONDITIONAL GOALS)
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; overflow-y:auto;">
+              ${achList}
             </div>
           </div>
         </div>

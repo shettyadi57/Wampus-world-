@@ -29,17 +29,20 @@ export class AIDriver {
 
     this.enabled = false;
     this.currentTargetNodeId = null;
+    this.lastDecidedNodeId = null;
     this.lastDecisions = []; // Full audit log of decisions
     this._stuckTimer = 0;
   }
 
   enable() {
     this.enabled = true;
+    this.lastDecidedNodeId = null;
     console.log('[ai/driver] Autonomous AI Driver ENGAGED — driving via Stage 1 RiskModel');
   }
 
   disable() {
     this.enabled = false;
+    this.lastDecidedNodeId = null;
     // Release actuators
     this.actuators.accelerate(0);
     this.actuators.brake(0);
@@ -105,8 +108,12 @@ export class AIDriver {
       }
     }
 
-    // 2. If close to current target (or no target set), query Stage 1 engine
-    if (!this.currentTargetNodeId || minDistance < 5.0) {
+    // 2. On-event evaluation: only query Stage 1 engine when entering a new junction node
+    const isAtJunction = minDistance < 5.0;
+    const isNewNodeArrival = nearestNodeId && nearestNodeId !== this.lastDecidedNodeId;
+
+    if (!this.currentTargetNodeId || (isAtJunction && isNewNodeArrival)) {
+      this.lastDecidedNodeId = nearestNodeId;
       const choice = this.chooseNextNode(nearestNodeId);
       if (choice && choice.nodeId !== nearestNodeId) {
         this.currentTargetNodeId = choice.nodeId;

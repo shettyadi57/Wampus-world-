@@ -122,29 +122,33 @@ export class ContextualSensorHUD {
     const items = [];
     if (p.breeze) {
       items.push({
-        label: 'WIND / BARO',
-        val: 'BREEZE (PIT VICINITY)',
+        glyph: '∿',
+        label: 'WIND / BARO [CAUTION: PIT]',
+        val: 'BREEZE DETECTED',
         color: 'var(--accent-cyan)',
       });
     }
     if (p.stench) {
       items.push({
-        label: 'THERMAL / AIR',
-        val: 'STENCH (HUNTER SIGNATURE)',
+        glyph: '▲',
+        label: 'THERMAL / AIR [THREAT: HUNTER]',
+        val: 'STENCH DETECTED',
         color: 'var(--status-danger)',
       });
     }
     if (p.glitter) {
       items.push({
-        label: 'ROAD SCANNER',
-        val: 'GLITTER (OBJECTIVE RESONANCE)',
+        glyph: '✦',
+        label: 'ROAD SCANNER [OBJECTIVE]',
+        val: 'GLITTER RESONANCE',
         color: 'var(--accent-amber)',
       });
     }
     if (p.bump) {
       items.push({
-        label: 'RADAR COLLISION',
-        val: 'OBSTACLE CONTACT',
+        glyph: '■',
+        label: 'RADAR COLLISION [CONTACT]',
+        val: 'OBSTACLE IMPACT',
         color: 'var(--status-danger)',
       });
     }
@@ -156,7 +160,7 @@ export class ContextualSensorHUD {
       pill.style.borderRadius = '3px';
       pill.style.borderLeft = `3px solid ${item.color}`;
       pill.innerHTML = `
-        <span style="color:var(--text-muted); font-size:9px; display:block; letter-spacing:0.05em;">${item.label}</span>
+        <span style="color:var(--text-muted); font-size:9px; display:block; letter-spacing:0.05em;"><span style="color:${item.color};font-weight:bold;">${item.glyph}</span> ${item.label}</span>
         <span style="color:${item.color}; font-weight:700;">${item.val}</span>
       `;
       this.feeds.appendChild(pill);

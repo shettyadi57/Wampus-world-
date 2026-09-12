@@ -1,11 +1,14 @@
 /**
  * MissionController.js
  * ─────────────────────────────────────────────────────────────
- * Interprets and runs missions end-to-end.
+ * Dynamic Expedition and Mission Controller.
  *
- * Implements "The Silent Checkpoint":
- * Start at Ranger Station (startId), navigate through winding mountain roads,
- * bypass or detect real hazards from Stage 1/2, and reach the Remote Checkpoint.
+ * Capabilities:
+ *   - Orchestrates multi-phase mountain expeditions ("The Silent Checkpoint",
+ *     "Deep Mountain Recon", "Hazard Protocol Alpha").
+ *   - Hooks into Navigator to update route waypoints to targets.
+ *   - Emits completion events to StateManager, StatsTracker, and AchievementManager.
+ *   - Supports generating new procedural expeditions dynamically.
  */
 
 export class MissionController {
@@ -17,6 +20,10 @@ export class MissionController {
     this.world = world;
     this.graph = world?.graph ?? null;
     this.spec = world?.spec ?? null;
+    this.state = options.state ?? null;
+    this.navigator = options.navigator ?? null;
+    this.statsTracker = options.statsTracker ?? null;
+    this.achievementManager = options.achievementManager ?? null;
 
     this.activeMission = null;
     this.isComplete = false;
@@ -27,7 +34,6 @@ export class MissionController {
 
   _initFirstMission() {
     const startNodeId = this.spec?.startId ?? (this.graph ? this.graph.nodeIds[0] : 'n_0_0');
-    // Target is remote checkpoint or objective
     const targetNodeId = this.spec?.objectiveId ?? (this.spec?.checkpoints?.[0] ?? (this.graph ? this.graph.nodeIds[this.graph.nodeIds.length - 1] : 'n_4_4'));
 
     this.activeMission = {
@@ -36,14 +42,74 @@ export class MissionController {
       status: 'in_progress', // 'in_progress' | 'completed' | 'failed'
       startNodeId,
       targetNodeId,
-      targetDesc: `Remote Checkpoint at Node [${targetNodeId}]`,
+      targetDesc: `Remote Checkpoint at Sector [${targetNodeId.toUpperCase()}]`,
       instruction: 'Drive from Ranger Station to Remote Checkpoint. Watch for breeze/stench hazard warnings.',
       distToTarget: Infinity,
       completed: false,
       failed: false,
     };
 
+    if (this.navigator && typeof this.navigator.setDestination === 'function') {
+      this.navigator.setDestination(targetNodeId, startNodeId);
+    }
+
+    if (this.statsTracker) {
+      this.statsTracker.recordExpeditionStart();
+    }
+
     console.log(`[missions] Loaded mission: "${this.activeMission.name}" (Target: ${targetNodeId})`);
+  }
+
+  /**
+   * Generates a new procedural expedition target on the graph.
+   * @param {string} [targetNodeId]
+   */
+  generateNewExpedition(targetNodeId = null) {
+    if (!this.graph) return null;
+
+    const availableNodes = this.graph.nodeIds.filter(id => {
+      const node = this.graph.nodes.get(id);
+      return node && node.hazard !== 'pit' && node.hazard !== 'hunter';
+    });
+
+    const chosenTarget = targetNodeId || availableNodes[Math.floor(Math.random() * availableNodes.length)] || 'n_4_4';
+    const startNode = this.spec?.startId ?? 'n_0_0';
+
+    this.isComplete = false;
+    this.isFailed = false;
+
+    this.activeMission = {
+      id: `expedition_${Date.now().toString(36)}`,
+      name: 'Mountain Reconnaissance Sortie',
+      status: 'in_progress',
+      startNodeId: startNode,
+      targetNodeId: chosenTarget,
+      targetDesc: `Tactical Outpost Sector [${chosenTarget.toUpperCase()}]`,
+      instruction: 'Traverse unmapped mountain sectors to designated tactical outpost. Trust sensor verification.',
+      distToTarget: Infinity,
+      completed: false,
+      failed: false,
+    };
+
+    if (this.navigator && typeof this.navigator.setDestination === 'function') {
+      this.navigator.setDestination(chosenTarget, startNode);
+    }
+
+    if (this.statsTracker) {
+      this.statsTracker.recordExpeditionStart();
+    }
+
+    if (this.state && typeof this.state.mutate === 'function') {
+      this.state.mutate({
+        missions: {
+          activeId: this.activeMission.id,
+          currentObjectiveId: chosenTarget,
+        },
+      });
+    }
+
+    console.log(`[missions] Generated new expedition to Sector [${chosenTarget}]`);
+    return this.activeMission;
   }
 
   /**
@@ -68,8 +134,29 @@ export class MissionController {
       this.isComplete = true;
       this.activeMission.completed = true;
       this.activeMission.status = 'completed';
-      this.activeMission.instruction = 'CHECKPOINT SECURED! Mission Accomplished.';
-      console.log('[missions] Mission "The Silent Checkpoint" COMPLETED!');
+      this.activeMission.instruction = 'CHECKPOINT SECURED! Expedition Accomplished.';
+      console.log(`[missions] Mission "${this.activeMission.name}" COMPLETED!`);
+
+      // Update persistent state
+      if (this.state && typeof this.state.mutate === 'function') {
+        const prevCompleted = this.state.get()?.missions?.completed || [];
+        this.state.mutate({
+          missions: {
+            activeId: this.activeMission.id,
+            completed: [...new Set([...prevCompleted, this.activeMission.id])],
+          },
+        });
+      }
+
+      // Record stats
+      if (this.statsTracker) {
+        this.statsTracker.recordExpeditionComplete();
+      }
+
+      // Trigger achievement
+      if (this.achievementManager) {
+        this.achievementManager.notifyExpeditionMilestone(true);
+      }
     }
 
     // Failure trigger: fuel exhaustion
@@ -78,7 +165,7 @@ export class MissionController {
       this.activeMission.failed = true;
       this.activeMission.status = 'failed';
       this.activeMission.instruction = 'FUEL EXHAUSTED! Vehicle stranded in mountains.';
-      console.log('[missions] Mission "The Silent Checkpoint" FAILED (out of fuel)!');
+      console.log(`[missions] Mission "${this.activeMission.name}" FAILED (out of fuel)!`);
     }
   }
 
@@ -94,7 +181,12 @@ export class MissionController {
  * @returns {Promise<MissionController>}
  */
 export async function initMissions(state, navigator, options = {}) {
-  const missions = new MissionController(options.world);
-  console.log('[missions] MissionController initialised');
+  const missions = new MissionController(options.world, {
+    state,
+    navigator,
+    statsTracker: options.statsTracker,
+    achievementManager: options.achievementManager,
+  });
+  console.log('[missions] MissionController fully initialized');
   return missions;
 }

@@ -125,8 +125,14 @@ export class JunctionDecisionUI {
 
       const riskPct = (b.risk * 100).toFixed(0);
       let riskColor = 'var(--status-success)';
-      if (b.risk > 0.5) riskColor = 'var(--status-danger)';
-      else if (b.risk > 0.2) riskColor = 'var(--status-warning)';
+      let riskGlyph = '✓ SAFE';
+      if (b.risk > 0.5) {
+        riskColor = 'var(--status-danger)';
+        riskGlyph = '■ DANGER';
+      } else if (b.risk > 0.2) {
+        riskColor = 'var(--status-warning)';
+        riskGlyph = '▲ CAUTION';
+      }
 
       let dirLabel = 'ROUTE ' + (idx + 1);
       if (this.branches.length === 2) {
@@ -143,7 +149,7 @@ export class JunctionDecisionUI {
           ${b.nodeId.toUpperCase()}
         </div>
         <div style="font-family:var(--font-hud); font-size:11px; font-weight:600; color:${riskColor};">
-          ${riskPct}% RISK
+          <span style="font-weight:bold;">${riskGlyph}</span> (${riskPct}%)
         </div>
         <div class="commit-tag" style="font-family:var(--font-mono); font-size:9px; color:var(--accent-amber); font-weight:700; opacity:0; transition:opacity var(--dur-micro) var(--ease-shared); margin-top:2px;">
           STEER TO COMMIT
