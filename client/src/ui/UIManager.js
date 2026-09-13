@@ -194,6 +194,10 @@ export class UIManager {
           if (this.vehicle) this.vehicle.resetTo();
           this.isPaused = false;
         },
+        onNewExpedition: () => {
+          this.isPaused = false;
+          this._dispatchNewExpedition();
+        },
         onUpdateSettings: (newSettings) => {
           this._applySettings(newSettings);
         },
@@ -275,6 +279,21 @@ export class UIManager {
       this.fieldComputer.toggle();
     });
     this.container.appendChild(this.fcBtn);
+  }
+
+  _dispatchNewExpedition() {
+    if (!this.missions) return;
+    const newMission = this.missions.generateNewExpedition();
+    if (newMission) {
+      if (this.audio) this.audio.playAlert();
+      this._showAchievementToast({
+        name: 'EXPEDITION DISPATCHED',
+        desc: `${newMission.name} → Sector [${newMission.targetNodeId.toUpperCase()}]`,
+      });
+      if (this.missionBriefing && !this.missionBriefing.isOpen && !this.fieldComputer?.isOpen) {
+        this.missionBriefing.open(newMission);
+      }
+    }
   }
 
   _bindAchievementToasts() {
@@ -426,6 +445,13 @@ export class UIManager {
       if (code === 'KeyG') {
         e.preventDefault();
         if (this.garageMenu) this.garageMenu.toggle();
+        return;
+      }
+
+      // KeyN: New Dynamic Expedition Sortie
+      if (code === 'KeyN') {
+        e.preventDefault();
+        this._dispatchNewExpedition();
         return;
       }
 

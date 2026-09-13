@@ -97,6 +97,9 @@ export class PauseMenu {
         <button id="pause-btn-resume" class="sentinel-btn sentinel-btn-primary" style="padding:12px 20px;">
           RESUME OPERATION
         </button>
+        <button id="pause-btn-new-mission" class="sentinel-btn" style="padding:10px 20px; color:var(--accent-amber); border-color:var(--accent-amber);">
+          NEW PROCEDURAL EXPEDITION [N]
+        </button>
         <button id="pause-btn-settings" class="sentinel-btn" style="padding:10px 20px;">
           SETTINGS & ACCESSIBILITY
         </button>
@@ -107,7 +110,7 @@ export class PauseMenu {
           RANGER GARAGE [G]
         </button>
         <button id="pause-btn-restart" class="sentinel-btn" style="padding:10px 20px; color:var(--status-warning);">
-          RESTART TO START NODE
+          RESTART TO START NODE [R]
         </button>
       </div>
 
@@ -120,6 +123,12 @@ export class PauseMenu {
       if (this.audio) this.audio.playClick();
       this.close();
       if (this.callbacks.onResume) this.callbacks.onResume();
+    });
+
+    this.card.querySelector('#pause-btn-new-mission').addEventListener('click', () => {
+      if (this.audio) this.audio.playClick();
+      this.close();
+      if (this.callbacks.onNewExpedition) this.callbacks.onNewExpedition();
     });
 
     this.card.querySelector('#pause-btn-settings').addEventListener('click', () => {

@@ -27,7 +27,34 @@ export class MissionController {
 
     this.activeMission = null;
     this.isComplete = false;
-    this.isFailed = false;
+    this.sortieTemplates = [
+      {
+        name: 'Deep Mountain Reconnaissance',
+        instruction: 'Traverse unmapped mountain sectors to designated tactical outpost. Trust sensor verification.',
+        threat: 'Abyssal Pits & Thermal Signatures',
+      },
+      {
+        name: 'Hazard Protocol Alpha: Ridge Sweep',
+        instruction: 'High-altitude barometric survey across treacherous mountain passes. Watch wind differentials.',
+        threat: 'Atmospheric Shear & Crevasse Hazards',
+      },
+      {
+        name: 'Crystalline Relay Activation',
+        instruction: 'Deploy emergency telemetry transponder at isolated sector node. Avoid active predator patrol.',
+        threat: 'Roaming Prowler & Unstable Edges',
+      },
+      {
+        name: 'Alpine Sector Survey & Fuel Run',
+        instruction: 'Verify mountain sector integrity before pass closes. Conserve engine fuel.',
+        threat: 'Deep Fissures & Dense Atmospheric Fog',
+      },
+      {
+        name: 'Permafrost Sector Infiltration',
+        instruction: 'Execute stealth survey of hazardous terrain. Maintain continuous situational awareness.',
+        threat: 'Pits & Dynamic Predator Heat Bloom',
+      },
+    ];
+    this.onMissionComplete = options.onMissionComplete ?? null;
 
     this._initFirstMission();
   }
@@ -63,8 +90,9 @@ export class MissionController {
   /**
    * Generates a new procedural expedition target on the graph.
    * @param {string} [targetNodeId]
+   * @param {string} [startNodeId]
    */
-  generateNewExpedition(targetNodeId = null) {
+  generateNewExpedition(targetNodeId = null, startNodeId = null) {
     if (!this.graph) return null;
 
     const availableNodes = this.graph.nodeIds.filter(id => {
@@ -73,19 +101,23 @@ export class MissionController {
     });
 
     const chosenTarget = targetNodeId || availableNodes[Math.floor(Math.random() * availableNodes.length)] || 'n_4_4';
-    const startNode = this.spec?.startId ?? 'n_0_0';
+    const startNode = startNodeId || (this.spec?.startId ?? 'n_0_0');
 
     this.isComplete = false;
     this.isFailed = false;
 
+    // Pick a procedural sortie template
+    const template = this.sortieTemplates[Math.floor(Math.random() * this.sortieTemplates.length)];
+
     this.activeMission = {
       id: `expedition_${Date.now().toString(36)}`,
-      name: 'Mountain Reconnaissance Sortie',
+      name: template.name,
       status: 'in_progress',
       startNodeId: startNode,
       targetNodeId: chosenTarget,
       targetDesc: `Tactical Outpost Sector [${chosenTarget.toUpperCase()}]`,
-      instruction: 'Traverse unmapped mountain sectors to designated tactical outpost. Trust sensor verification.',
+      instruction: template.instruction,
+      threatDesc: template.threat,
       distToTarget: Infinity,
       completed: false,
       failed: false,
@@ -108,7 +140,7 @@ export class MissionController {
       });
     }
 
-    console.log(`[missions] Generated new expedition to Sector [${chosenTarget}]`);
+    console.log(`[missions] Generated new dynamic expedition: "${this.activeMission.name}" to Sector [${chosenTarget}]`);
     return this.activeMission;
   }
 
@@ -134,7 +166,7 @@ export class MissionController {
       this.isComplete = true;
       this.activeMission.completed = true;
       this.activeMission.status = 'completed';
-      this.activeMission.instruction = 'CHECKPOINT SECURED! Expedition Accomplished.';
+      this.activeMission.instruction = 'CHECKPOINT SECURED! Press [N] for Next Sortie.';
       console.log(`[missions] Mission "${this.activeMission.name}" COMPLETED!`);
 
       // Update persistent state
@@ -156,6 +188,11 @@ export class MissionController {
       // Trigger achievement
       if (this.achievementManager) {
         this.achievementManager.notifyExpeditionMilestone(true);
+      }
+
+      // Callback
+      if (typeof this.onMissionComplete === 'function') {
+        this.onMissionComplete(this.activeMission);
       }
     }
 

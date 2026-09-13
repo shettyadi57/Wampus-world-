@@ -75,14 +75,22 @@ export class MainMenu {
 
       <!-- Difficulty Tier Selector -->
       <div style="width:100%; border-top:1px solid var(--border-glass); padding-top:16px;">
-        <div style="font-family:var(--font-hud); font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:0.12em; margin-bottom:10px;">
-          THREAT ENVIRONMENT DIFFICULTY
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div style="font-family:var(--font-hud); font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:0.12em;">
+            THREAT ENVIRONMENT DIFFICULTY
+          </div>
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--accent-amber);">
+            PROCEDURAL WORLD SEED: ACTIVE
+          </div>
         </div>
         <div id="difficulty-btn-group" style="display:flex; justify-content:center; gap:8px;">
           <button data-tier="easy" class="sentinel-btn" style="padding:6px 12px; font-size:11px;">EASY</button>
           <button data-tier="normal" class="sentinel-btn sentinel-btn-primary" style="padding:6px 12px; font-size:11px;">NORMAL</button>
           <button data-tier="hard" class="sentinel-btn" style="padding:6px 12px; font-size:11px;">HARD</button>
           <button data-tier="nightmare" class="sentinel-btn" style="padding:6px 12px; font-size:11px;">NIGHTMARE</button>
+        </div>
+        <div id="difficulty-desc" style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); margin-top:8px; line-height:1.4;">
+          Standard mountain sortie baseline. Authentic sensor noise, standard fuel, balanced procedural hazards.
         </div>
       </div>
 
@@ -92,6 +100,13 @@ export class MainMenu {
     `;
 
     this.element.appendChild(card);
+
+    const tierDescriptions = {
+      easy: 'Stabilized weather. +40% auxiliary fuel, minimal sensor noise, passive hunter pacing.',
+      normal: 'Standard mountain sortie baseline. Authentic sensor noise, standard fuel, balanced procedural hazards.',
+      hard: 'Severe mountain conditions. 2.5x sensor false alarms, roaming predator actively tracks, tighter fuel margins.',
+      nightmare: 'Extreme threat environment. Severe atmospheric distortion, aggressive hunter stalking, minimal fuel leeway.',
+    };
 
     // Event listeners
     card.querySelector('#menu-btn-start').addEventListener('click', () => {
@@ -105,6 +120,7 @@ export class MainMenu {
       if (this.callbacks.onOpenGarage) this.callbacks.onOpenGarage();
     });
 
+    const descEl = card.querySelector('#difficulty-desc');
     const tierBtns = card.querySelectorAll('#difficulty-btn-group button');
     tierBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -112,6 +128,9 @@ export class MainMenu {
         tierBtns.forEach(b => b.classList.remove('sentinel-btn-primary'));
         btn.classList.add('sentinel-btn-primary');
         const tier = btn.getAttribute('data-tier');
+        if (descEl && tierDescriptions[tier]) {
+          descEl.textContent = tierDescriptions[tier];
+        }
         if (this.callbacks.onSelectTier) this.callbacks.onSelectTier(tier);
       });
     });

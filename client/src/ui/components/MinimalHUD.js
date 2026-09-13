@@ -19,10 +19,46 @@ export class MinimalHUD {
     this.element.style.pointerEvents = 'none';
 
     this._buildCompass();
+    this._buildObjectiveBar();
     this._buildCluster();
     this.parent.appendChild(this.element);
 
     this.currentRpmNorm = 0;
+  }
+
+  _buildObjectiveBar() {
+    this.objectiveBar = document.createElement('div');
+    this.objectiveBar.id = 'hud-objective-bar';
+    this.objectiveBar.className = 'glass-panel';
+    this.objectiveBar.style.position = 'absolute';
+    this.objectiveBar.style.top = '66px';
+    this.objectiveBar.style.left = '50%';
+    this.objectiveBar.style.transform = 'translateX(-50%)';
+    this.objectiveBar.style.padding = '5px 16px';
+    this.objectiveBar.style.border = '1px solid var(--border-glass)';
+    this.objectiveBar.style.display = 'flex';
+    this.objectiveBar.style.alignItems = 'center';
+    this.objectiveBar.style.gap = '10px';
+    this.objectiveBar.style.fontFamily = 'var(--font-hud)';
+    this.objectiveBar.style.fontSize = '11px';
+    this.objectiveBar.style.letterSpacing = '0.06em';
+    this.objectiveBar.style.zIndex = '5';
+    this.objectiveBar.style.transition = 'all 0.3s var(--ease-shared)';
+
+    this.objectiveBar.innerHTML = `
+      <span style="color:var(--accent-amber); font-weight:700; letter-spacing:0.12em;">DIRECTIVE</span>
+      <span id="hud-obj-name" style="color:var(--text-primary); font-weight:600;">THE SILENT CHECKPOINT</span>
+      <span style="color:var(--text-muted)">//</span>
+      <span id="hud-obj-target" style="color:var(--accent-cyan); font-weight:700;">SECTOR [N_4_4]</span>
+      <span style="color:var(--text-muted)">//</span>
+      <span id="hud-obj-dist" style="color:var(--accent-amber); font-family:var(--font-mono); font-weight:700;">--- M</span>
+    `;
+
+    this.element.appendChild(this.objectiveBar);
+
+    this.objNameEl = this.objectiveBar.querySelector('#hud-obj-name');
+    this.objTargetEl = this.objectiveBar.querySelector('#hud-obj-target');
+    this.objDistEl = this.objectiveBar.querySelector('#hud-obj-dist');
   }
 
   _buildCompass() {
@@ -249,6 +285,37 @@ export class MinimalHUD {
     const tapeX = -(deg * (55 / 30)) - (360 * (55 / 30));
     if (this.tapeTrack) {
       this.tapeTrack.style.transform = `translateX(${tapeX}px)`;
+    }
+
+    // 6. Dynamic Mission Objective Bar
+    const mission = telemetry.mission;
+    if (mission && this.objectiveBar) {
+      if (this.objNameEl) this.objNameEl.textContent = (mission.name || 'EXPEDITION').toUpperCase();
+      if (this.objTargetEl) this.objTargetEl.textContent = `SECTOR [${(mission.targetNodeId || '').toUpperCase()}]`;
+
+      if (mission.completed) {
+        this.objectiveBar.style.borderColor = 'var(--status-success)';
+        this.objectiveBar.style.background = 'rgba(61, 220, 132, 0.18)';
+        if (this.objDistEl) {
+          this.objDistEl.style.color = 'var(--status-success)';
+          this.objDistEl.innerHTML = `<span style="font-weight:bold;">✓ CHECKPOINT SECURED</span> <span style="color:#ffffff;font-size:10px;margin-left:6px;">[PRESS N FOR NEXT SORTIE]</span>`;
+        }
+      } else {
+        const d = mission.distToTarget;
+        const distStr = isFinite(d) ? `${Math.round(d)} M` : '--- M';
+        if (this.objDistEl) {
+          this.objDistEl.textContent = distStr;
+          if (d < 25) {
+            this.objectiveBar.style.borderColor = 'var(--accent-amber)';
+            this.objectiveBar.style.background = 'rgba(255, 184, 77, 0.22)';
+            this.objDistEl.style.color = 'var(--accent-amber)';
+          } else {
+            this.objectiveBar.style.borderColor = 'var(--border-glass)';
+            this.objectiveBar.style.background = 'rgba(20, 22, 26, 0.75)';
+            this.objDistEl.style.color = 'var(--text-secondary)';
+          }
+        }
+      }
     }
   }
 

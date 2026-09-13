@@ -516,30 +516,64 @@ export class FieldComputer {
   _renderMissions() {
     const missions = this.context.missions;
     const summary = missions?.getActiveMissionSummary ? missions.getActiveMissionSummary() : null;
+    const distStr = summary?.distToTarget && isFinite(summary.distToTarget) ? `${Math.round(summary.distToTarget)} meters` : 'Acquiring GPS / Spline telemetry...';
+    const statusColor = summary?.completed ? 'var(--status-success)' : summary?.failed ? 'var(--status-danger)' : 'var(--accent-cyan)';
 
     this.contentArea.innerHTML = `
-      <div style="display:flex; flex-direction:column; height:100%; gap:18px;">
-        <div style="font-family:var(--font-hud); font-size:20px; font-weight:700; color:var(--accent-amber);">
-          PRIMARY DIRECTIVE: ${summary?.name ?? 'THE SILENT CHECKPOINT'}
-        </div>
-        <div class="glass-panel" style="padding:20px; display:flex; flex-direction:column; gap:12px;">
-          <div>
-            <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">STATUS</span>
-            <span style="font-family:var(--font-hud); font-size:18px; font-weight:700; color:var(--accent-cyan);">${summary?.status?.toUpperCase() ?? 'IN PROGRESS'}</span>
+      <div style="display:flex; flex-direction:column; height:100%; gap:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-family:var(--font-hud); font-size:20px; font-weight:700; color:var(--accent-amber);">
+            PRIMARY DIRECTIVE: ${summary?.name ?? 'THE SILENT CHECKPOINT'}
           </div>
+          <button id="fc-btn-new-sortie" class="sentinel-btn sentinel-btn-primary" style="padding:8px 18px; font-size:11px;">
+            DISPATCH NEW PROCEDURAL EXPEDITION [N]
+          </button>
+        </div>
+
+        <div class="glass-panel" style="padding:20px; display:flex; flex-direction:column; gap:12px;">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div>
+              <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">MISSION STATUS</span>
+              <span style="font-family:var(--font-hud); font-size:18px; font-weight:700; color:${statusColor};">${summary?.status?.toUpperCase() ?? 'IN PROGRESS'}</span>
+            </div>
+            <div>
+              <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">DISTANCE TO CHECKPOINT</span>
+              <span style="font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--accent-amber);">${distStr}</span>
+            </div>
+          </div>
+
           <div>
             <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">TARGET OBJECTIVE</span>
             <span style="font-size:14px; color:var(--text-primary); font-weight:600;">${summary?.targetDesc ?? 'Ranger Outpost Sector'}</span>
           </div>
+
           <div>
-            <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">TACTICAL BRIEFING</span>
-            <div style="font-size:12px; line-height:1.6; color:var(--text-secondary); margin-top:4px;">
-              Traverse the treacherous mountain passes to reach the designated objective. Watch barometric breeze and thermal stench anomalies. Maintain fuel reserves by pacing throttle demand.
+            <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">TACTICAL INSTRUCTION</span>
+            <div style="font-size:13px; line-height:1.6; color:var(--text-primary); margin-top:2px;">
+              ${summary?.instruction ?? 'Drive safely through mountain road network to remote checkpoint.'}
+            </div>
+          </div>
+
+          <div>
+            <span style="font-family:var(--font-hud); font-size:11px; color:var(--text-muted); display:block; letter-spacing:0.08em;">IDENTIFIED SECTOR HAZARDS</span>
+            <div style="font-size:12px; color:var(--status-danger); font-weight:600; margin-top:2px;">
+              ${summary?.threatDesc ?? 'Uncharted Pits, Dynamic Roaming Prowler, and High-Altitude Crevasses'}
             </div>
           </div>
         </div>
       </div>
     `;
+
+    const dispatchBtn = this.contentArea.querySelector('#fc-btn-new-sortie');
+    if (dispatchBtn) {
+      dispatchBtn.addEventListener('click', () => {
+        if (this.audio) this.audio.playClick();
+        if (missions && typeof missions.generateNewExpedition === 'function') {
+          missions.generateNewExpedition();
+          this._renderMissions();
+        }
+      });
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────
