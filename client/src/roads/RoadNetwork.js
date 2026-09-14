@@ -326,6 +326,55 @@ export class RoadNetwork {
   }
 
   /**
+   * Compute the minimum lateral distance from point (x, z) to the nearest
+   * road spline centreline, and return the drivable ribbon half-width.
+   *
+   * Used by PhysicsEngine.checkRoadBoundary() to implement the soft-constraint
+   * road track-keeping model (R1).  No Three.js geometry is created; this is a
+   * pure geometric query over the pre-built CatmullRomCurve3 segment data.
+   *
+   * @param {number} x
+   * @param {number} z
+   * @returns {{ distFromCenter: number, halfWidth: number, onRoad: boolean }}
+   */
+  getDistanceFromCenterline(x, z) {
+    let minDist    = Infinity;
+    const hw       = this.roadWidth * 0.5;  // half-width of drivable ribbon
+
+    for (const [, seg] of this.segments) {
+      // Fast AABB reject using junction endpoints
+      const u = this.junctions.get(seg.a)?.position;
+      const v = this.junctions.get(seg.b)?.position;
+      if (!u || !v) continue;
+
+      const margin = hw + 6;  // generous reject margin
+      if (x < Math.min(u.x, v.x) - margin || x > Math.max(u.x, v.x) + margin) continue;
+      if (z < Math.min(u.z, v.z) - margin || z > Math.max(u.z, v.z) + margin) continue;
+
+      // Project query point onto the spline by sampling
+      const samples = 24;
+      for (let i = 0; i <= samples; i++) {
+        const pt  = seg.curve.getPoint(i / samples);
+        const dx  = x - pt.x;
+        const dz  = z - pt.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < minDist) minDist = dist;
+      }
+    }
+
+    if (!isFinite(minDist)) {
+      // No road segments found (empty graph) -- treat as on road
+      return { distFromCenter: 0, halfWidth: hw, onRoad: true };
+    }
+
+    return {
+      distFromCenter: minDist,
+      halfWidth: hw,
+      onRoad: minDist <= hw,
+    };
+  }
+
+  /**
    * Sample road elevation at world coordinates (x, z).
    * Returns road height info if within road corridor, else null.
    *

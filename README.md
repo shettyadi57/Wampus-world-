@@ -1,5 +1,7 @@
 # 🧭 Wampus World — SENTINEL: The Unknown Road
 
+![Wampus World Banner](file:///C:/Users/Adithya%20s%20shetty/.gemini/antigravity-ide/brain/18e39203-16b7-443a-98a1-ed7574252de4/wampus_world_banner_1789283133022.jpg)
+
 > *"Read the road. Trust the signals."*
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
