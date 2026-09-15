@@ -19,13 +19,14 @@ export class AIDriver {
    * @param {import('../../vehicle/VehicleController.js').VehicleController} context.vehicle
    * @param {import('../../roads/RoadNetwork.js').RoadNetwork} context.roads
    */
-  constructor({ graph, kb, riskModel, actuators, vehicle, roads }) {
+  constructor({ graph, kb, riskModel, actuators, vehicle, roads, navigator = null }) {
     this.graph = graph;
     this.kb = kb;
     this.riskModel = riskModel;
     this.actuators = actuators;
     this.vehicle = vehicle;
     this.roads = roads;
+    this.navigator = navigator;  // Optional: A* Navigator for path-following mode
 
     this.enabled = false;
     this.currentTargetNodeId = null;
@@ -58,6 +59,54 @@ export class AIDriver {
   chooseNextNode(currentNodeId) {
     if (!this.graph || !currentNodeId) return null;
 
+    // ── Navigator path-following mode ─────────────────────────────
+    // When a Navigator is available and has a planned route, follow it
+    // (advancing past already-visited waypoints).  Only fall back to
+    // greedy RiskModel ranking if no navigator plan is active or if the
+    // next planned waypoint has been confirmed dangerous.
+    if (this.navigator && this.navigator.waypoints && this.navigator.waypoints.length > 0) {
+      // Advance past waypoints we have already passed
+      while (
+        this.navigator.currentIndex < this.navigator.waypoints.length - 1 &&
+        this.navigator.waypoints[this.navigator.currentIndex]?.nodeId === currentNodeId
+      ) {
+        this.navigator.advanceWaypoint();
+      }
+
+      const nextWaypoint = this.navigator.nextWaypoint();
+      if (nextWaypoint && nextWaypoint.nodeId && nextWaypoint.nodeId !== currentNodeId) {
+        // Verify the planned next waypoint is safe (not confirmed-dangerous)
+        const b = this.kb ? this.kb.getBelief(nextWaypoint.nodeId) : null;
+        const isConfirmedDangerous = b && (b.pit_confirmed || b.hunter_confirmed);
+
+        if (!isConfirmedDangerous) {
+          // Score the waypoint for the audit log
+          const score = this.riskModel.scoreNode(nextWaypoint.nodeId, {
+            agentNode: currentNodeId,
+            fuelRemaining: this.vehicle.fuelRemaining,
+          });
+
+          const decisionRecord = {
+            timestamp:  Date.now(),
+            fromNode:   currentNodeId,
+            toNode:     nextWaypoint.nodeId,
+            utility:    score.confidence / 100, // proxy when objectiveBonus not applicable
+            risk:       score.risk,
+            confidence: score.confidence,
+            reason:     `[navigator] ${score.reason}`,
+            candidates: [],
+          };
+          this.lastDecisions.push(decisionRecord);
+          console.log(
+            `[ai/driver] Decision at ${currentNodeId} → Chose ${nextWaypoint.nodeId} ` +
+            `(Navigator plan, Risk: ${(score.risk * 100).toFixed(0)}%, Reason: "${score.reason}")`
+          );
+          return { nodeId: nextWaypoint.nodeId, ...score, utility: decisionRecord.utility };
+        }
+      }
+    }
+
+    // ── Greedy local RiskModel fallback ───────────────────────────
     const ranked = this.riskModel.rankNeighbors(currentNodeId, {
       fuelRemaining: this.vehicle.fuelRemaining,
     });
